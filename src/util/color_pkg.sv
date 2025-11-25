@@ -31,11 +31,12 @@ package color_pkg;
     parameter rgb_t DIRT_GRAY      = '{r: 8'h70, g: 8'h70, b: 8'h70};  // 회색 (돌 느낌)
 
     // ========================================
-    // 게임 오브젝트 색상
+    // 게임 오브젝트 색상 - IC 칩 캐릭터
     // ========================================
-    parameter rgb_t PLAYER_RED     = '{r: 8'hE7, g: 8'h4C, b: 8'h3C};  // 빨간색 (마리오 느낌)
-    parameter rgb_t PLAYER_BROWN   = '{r: 8'hA5, g: 8'h6E, b: 8'h3A};  // 갈색
-    parameter rgb_t PLAYER_SKIN    = '{r: 8'hFF, g: 8'hCC, b: 8'h99};  // 피부색
+    parameter rgb_t IC_BLACK       = '{r: 8'h20, g: 8'h20, b: 8'h20};  // IC 몸체 (검정)
+    parameter rgb_t IC_GRAY        = '{r: 8'h50, g: 8'h50, b: 8'h50};  // IC 테두리 (다크 그레이)
+    parameter rgb_t IC_SILVER      = '{r: 8'hC0, g: 8'hC0, b: 8'hC0};  // 메탈 핀 (은색)
+    parameter rgb_t IC_RED         = '{r: 8'hFF, g: 8'h00, b: 8'h00};  // 방향 표시 (빨강)
 
     parameter rgb_t BOX_YELLOW     = '{r: 8'hFF, g: 8'hCC, b: 8'h00};  // 노란색 (? 박스)
     parameter rgb_t BOX_ORANGE     = '{r: 8'hFF, g: 8'h99, b: 8'h00};  // 주황색 (테두리)

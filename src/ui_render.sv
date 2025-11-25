@@ -1,6 +1,7 @@
 // ui_render.sv
 // NES 보드 게임 스타일 UI 렌더러 (All-in-one)
 // 배경: 하늘(0~140px) + 잔디(140~150px) + 흙(150~180px)
+// 플레이어: IC 칩 (16x16, 상하 핀)
 
 // ============================================
 // 색상 정의 패키지
@@ -26,8 +27,15 @@ package color_pkg;
     parameter rgb_t DIRT_LIGHT     = '{r: 8'hA0, g: 8'h7A, b: 8'h50};
     parameter rgb_t DIRT_GRAY      = '{r: 8'h70, g: 8'h70, b: 8'h70};
 
+    // IC 칩 캐릭터
+    parameter rgb_t IC_BLACK       = '{r: 8'h20, g: 8'h20, b: 8'h20};
+    parameter rgb_t IC_GRAY        = '{r: 8'h50, g: 8'h50, b: 8'h50};
+    parameter rgb_t IC_SILVER      = '{r: 8'hC0, g: 8'hC0, b: 8'hC0};
+    parameter rgb_t IC_RED         = '{r: 8'hFF, g: 8'h00, b: 8'h00};
+
     // 기본
     parameter rgb_t BLACK          = '{r: 8'h00, g: 8'h00, b: 8'h00};
+    parameter rgb_t TRANSPARENT    = '{r: 8'hFF, g: 8'h00, b: 8'hFF};
 endpackage
 
 
@@ -71,7 +79,7 @@ module grass_renderer (
         if (y >= 140 && y < 150) begin
             enable = 1'b1;
             if (y == 140) begin
-                color = GRASS_BRIGHT;  // 밝은 초록 윗줄
+                color = GRASS_BRIGHT;
             end else begin
                 color = GRASS_GREEN;
             end
@@ -119,44 +127,181 @@ endmodule
 
 
 // ============================================
+// IC 칩 플레이어 렌더러 (16x16)
+// ============================================
+module player_renderer (
+    input  logic [9:0] x,
+    input  logic [9:0] y,
+    input  logic [9:0] player_x,
+    input  logic [9:0] player_y,
+    output rgb_t       color,
+    output logic       enable
+);
+    logic in_player_area;
+    logic [3:0] sprite_x;
+    logic [3:0] sprite_y;
+
+    assign in_player_area = (x >= player_x) && (x < player_x + 16) &&
+                            (y >= player_y) && (y < player_y + 16);
+    assign sprite_x = x - player_x;
+    assign sprite_y = y - player_y;
+
+    always_comb begin
+        if (in_player_area) begin
+            case (sprite_y)
+                // 위쪽 핀
+                4'd0, 4'd1: begin
+                    if ((sprite_x >= 2 && sprite_x <= 3) ||
+                        (sprite_x >= 6 && sprite_x <= 7) ||
+                        (sprite_x >= 10 && sprite_x <= 11)) begin
+                        color = IC_SILVER;
+                        enable = 1'b1;
+                    end else begin
+                        enable = 1'b0;
+                        color = TRANSPARENT;
+                    end
+                end
+
+                // 테두리 상단
+                4'd2: begin
+                    if (sprite_x >= 1 && sprite_x <= 14) begin
+                        color = IC_GRAY;
+                        enable = 1'b1;
+                    end else begin
+                        enable = 1'b0;
+                        color = TRANSPARENT;
+                    end
+                end
+
+                // 테두리 + 몸체
+                4'd3: begin
+                    if (sprite_x == 1 || sprite_x == 14) begin
+                        color = IC_GRAY;
+                        enable = 1'b1;
+                    end else if (sprite_x >= 2 && sprite_x <= 13) begin
+                        color = IC_BLACK;
+                        enable = 1'b1;
+                    end else begin
+                        enable = 1'b0;
+                        color = TRANSPARENT;
+                    end
+                end
+
+                // 빨간 점
+                4'd4, 4'd5: begin
+                    if (sprite_x == 1 || sprite_x == 14) begin
+                        color = IC_GRAY;
+                        enable = 1'b1;
+                    end else if (sprite_x >= 6 && sprite_x <= 7) begin
+                        color = IC_RED;
+                        enable = 1'b1;
+                    end else if (sprite_x >= 2 && sprite_x <= 13) begin
+                        color = IC_BLACK;
+                        enable = 1'b1;
+                    end else begin
+                        enable = 1'b0;
+                        color = TRANSPARENT;
+                    end
+                end
+
+                // 몸체
+                4'd6, 4'd7, 4'd8, 4'd9, 4'd10, 4'd11, 4'd12: begin
+                    if (sprite_x == 1 || sprite_x == 14) begin
+                        color = IC_GRAY;
+                        enable = 1'b1;
+                    end else if (sprite_x >= 2 && sprite_x <= 13) begin
+                        color = IC_BLACK;
+                        enable = 1'b1;
+                    end else begin
+                        enable = 1'b0;
+                        color = TRANSPARENT;
+                    end
+                end
+
+                // 테두리 하단
+                4'd13: begin
+                    if (sprite_x >= 1 && sprite_x <= 14) begin
+                        color = IC_GRAY;
+                        enable = 1'b1;
+                    end else begin
+                        enable = 1'b0;
+                        color = TRANSPARENT;
+                    end
+                end
+
+                // 아래쪽 핀
+                4'd14, 4'd15: begin
+                    if ((sprite_x >= 2 && sprite_x <= 3) ||
+                        (sprite_x >= 6 && sprite_x <= 7) ||
+                        (sprite_x >= 10 && sprite_x <= 11)) begin
+                        color = IC_SILVER;
+                        enable = 1'b1;
+                    end else begin
+                        enable = 1'b0;
+                        color = TRANSPARENT;
+                    end
+                end
+
+                default: begin
+                    enable = 1'b0;
+                    color = TRANSPARENT;
+                end
+            endcase
+        end else begin
+            enable = 1'b0;
+            color = TRANSPARENT;
+        end
+    end
+endmodule
+
+
+// ============================================
 // UI 렌더러 (Top Module)
 // ============================================
 module ui_render (
     input  logic       clk,
     input  logic [9:0] x,          // 0 ~ 639
     input  logic [9:0] y,          // 0 ~ 479
+    input  logic [9:0] player_x,   // 플레이어 x 위치
+    input  logic [9:0] player_y,   // 플레이어 y 위치
     output logic [7:0] r,          // Red
     output logic [7:0] g,          // Green
     output logic [7:0] b           // Blue
 );
 
     // 렌더러 신호
-    rgb_t  sky_color, grass_color, dirt_color;
-    logic  sky_en, grass_en, dirt_en;
+    rgb_t  sky_color, grass_color, dirt_color, player_color;
+    logic  sky_en, grass_en, dirt_en, player_en;
 
-    // 렌더러 인스턴스
+    // 배경 렌더러
     sky_renderer sky_inst (
-        .x(x),
-        .y(y),
+        .x(x), .y(y),
         .color(sky_color),
         .enable(sky_en)
     );
 
     grass_renderer grass_inst (
-        .x(x),
-        .y(y),
+        .x(x), .y(y),
         .color(grass_color),
         .enable(grass_en)
     );
 
     dirt_renderer dirt_inst (
-        .x(x),
-        .y(y),
+        .x(x), .y(y),
         .color(dirt_color),
         .enable(dirt_en)
     );
 
-    // 레이어 합성
+    // 플레이어 렌더러
+    player_renderer player_inst (
+        .x(x), .y(y),
+        .player_x(player_x),
+        .player_y(player_y),
+        .color(player_color),
+        .enable(player_en)
+    );
+
+    // 레이어 합성 (우선순위: player > dirt > grass > sky)
     rgb_t final_color;
 
     always_comb begin
@@ -172,6 +317,10 @@ module ui_render (
 
         if (dirt_en) begin
             final_color = dirt_color;
+        end
+
+        if (player_en) begin
+            final_color = player_color;
         end
     end
 
