@@ -1,7 +1,7 @@
 // ui_render.sv
 // NES 보드 게임 스타일 UI 렌더러 (All-in-one)
 // 배경: 하늘(0~140px) + 잔디(140~150px) + 흙(150~180px)
-// 플레이어: IC 칩 (16x16, 상하 핀)
+// 플레이어: IC 칩 (16x16, 좌우 핀)
 
 // ============================================
 // 색상 정의 패키지
@@ -127,7 +127,7 @@ endmodule
 
 
 // ============================================
-// IC 칩 플레이어 렌더러 (16x16)
+// IC 칩 플레이어 렌더러 (16x16, 좌우 핀)
 // ============================================
 module player_renderer (
     input  logic [9:0] x,
@@ -149,22 +149,9 @@ module player_renderer (
     always_comb begin
         if (in_player_area) begin
             case (sprite_y)
-                // 위쪽 핀
-                4'd0, 4'd1: begin
-                    if ((sprite_x >= 2 && sprite_x <= 3) ||
-                        (sprite_x >= 6 && sprite_x <= 7) ||
-                        (sprite_x >= 10 && sprite_x <= 11)) begin
-                        color = IC_SILVER;
-                        enable = 1'b1;
-                    end else begin
-                        enable = 1'b0;
-                        color = TRANSPARENT;
-                    end
-                end
-
-                // 테두리 상단
-                4'd2: begin
-                    if (sprite_x >= 1 && sprite_x <= 14) begin
+                // Row 0: 상단 테두리
+                4'd0: begin
+                    if (sprite_x >= 2 && sprite_x <= 13) begin
                         color = IC_GRAY;
                         enable = 1'b1;
                     end else begin
@@ -173,8 +160,8 @@ module player_renderer (
                     end
                 end
 
-                // 테두리 + 몸체
-                4'd3: begin
+                // Row 1: 테두리 + 몸체
+                4'd1: begin
                     if (sprite_x == 1 || sprite_x == 14) begin
                         color = IC_GRAY;
                         enable = 1'b1;
@@ -187,8 +174,8 @@ module player_renderer (
                     end
                 end
 
-                // 빨간 점
-                4'd4, 4'd5: begin
+                // Row 2-3: 빨간 점 (방향 표시)
+                4'd2, 4'd3: begin
                     if (sprite_x == 1 || sprite_x == 14) begin
                         color = IC_GRAY;
                         enable = 1'b1;
@@ -204,8 +191,25 @@ module player_renderer (
                     end
                 end
 
-                // 몸체
-                4'd6, 4'd7, 4'd8, 4'd9, 4'd10, 4'd11, 4'd12: begin
+                // Row 4-11: 좌우 핀 + 몸체
+                4'd4, 4'd5, 4'd6, 4'd7, 4'd8, 4'd9, 4'd10, 4'd11: begin
+                    if (sprite_x <= 1 || sprite_x >= 14) begin
+                        color = IC_SILVER;
+                        enable = 1'b1;
+                    end else if (sprite_x == 2 || sprite_x == 13) begin
+                        color = IC_GRAY;
+                        enable = 1'b1;
+                    end else if (sprite_x >= 3 && sprite_x <= 12) begin
+                        color = IC_BLACK;
+                        enable = 1'b1;
+                    end else begin
+                        enable = 1'b0;
+                        color = TRANSPARENT;
+                    end
+                end
+
+                // Row 12-14: 테두리 + 몸체
+                4'd12, 4'd13, 4'd14: begin
                     if (sprite_x == 1 || sprite_x == 14) begin
                         color = IC_GRAY;
                         enable = 1'b1;
@@ -218,23 +222,10 @@ module player_renderer (
                     end
                 end
 
-                // 테두리 하단
-                4'd13: begin
-                    if (sprite_x >= 1 && sprite_x <= 14) begin
+                // Row 15: 하단 테두리
+                4'd15: begin
+                    if (sprite_x >= 2 && sprite_x <= 13) begin
                         color = IC_GRAY;
-                        enable = 1'b1;
-                    end else begin
-                        enable = 1'b0;
-                        color = TRANSPARENT;
-                    end
-                end
-
-                // 아래쪽 핀
-                4'd14, 4'd15: begin
-                    if ((sprite_x >= 2 && sprite_x <= 3) ||
-                        (sprite_x >= 6 && sprite_x <= 7) ||
-                        (sprite_x >= 10 && sprite_x <= 11)) begin
-                        color = IC_SILVER;
                         enable = 1'b1;
                     end else begin
                         enable = 1'b0;
