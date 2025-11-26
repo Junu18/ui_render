@@ -91,50 +91,48 @@ module ui_render_test_top (
     localparam START_X = 20;
     localparam MAX_X = 620;  // 깃발 위치
 
-    // Player 1 제어용 신호
+    // Player 위치 신호 (Game Logic 시뮬레이션)
     logic [9:0] player1_pos_x_sim;
-    logic       player1_pos_valid_sim;
-    logic       player1_turn_done;
-
-    // Player 2는 고정 (테스트용)
     logic [9:0] player2_pos_x_sim;
-    logic       player2_pos_valid_sim;
-    logic       player2_turn_done;
+    logic       pos_valid_sim;          // 통합 valid 신호
+    logic       active_player_sim;      // 0=Player1, 1=Player2
+    logic       turn_done;
 
-    // Player 1: 버튼 입력 → pos_x + pos_valid 생성
+    // Player 1: 버튼 입력 → pos_x + pos_valid + active_player 생성
     always_ff @(posedge clk_25mhz or posedge btn_reset) begin
         if (btn_reset) begin
             player1_pos_x_sim <= START_X;
-            player1_pos_valid_sim <= 1'b0;
+            player2_pos_x_sim <= START_X;
+            pos_valid_sim <= 1'b0;
+            active_player_sim <= 1'b0;
         end else begin
-            // 버튼 입력 처리
+            // 버튼 입력 처리 (Player 1 제어)
             if (btnL_pulse) begin
                 // 1칸 이동 (60px)
                 if (player1_pos_x_sim + TILE_SPACING <= MAX_X) begin
                     player1_pos_x_sim <= player1_pos_x_sim + TILE_SPACING;
-                    player1_pos_valid_sim <= 1'b1;  // 1 cycle pulse
+                    pos_valid_sim <= 1'b1;      // 1 cycle pulse
+                    active_player_sim <= 1'b0;  // Player 1
                 end
             end else if (btnU_pulse) begin
                 // 2칸 이동 (120px)
                 if (player1_pos_x_sim + 2*TILE_SPACING <= MAX_X) begin
                     player1_pos_x_sim <= player1_pos_x_sim + 2*TILE_SPACING;
-                    player1_pos_valid_sim <= 1'b1;
+                    pos_valid_sim <= 1'b1;
+                    active_player_sim <= 1'b0;
                 end
             end else if (btnR_pulse) begin
                 // 3칸 이동 (180px)
                 if (player1_pos_x_sim + 3*TILE_SPACING <= MAX_X) begin
                     player1_pos_x_sim <= player1_pos_x_sim + 3*TILE_SPACING;
-                    player1_pos_valid_sim <= 1'b1;
+                    pos_valid_sim <= 1'b1;
+                    active_player_sim <= 1'b0;
                 end
             end else begin
-                player1_pos_valid_sim <= 1'b0;  // 1 cycle만
+                pos_valid_sim <= 1'b0;  // 1 cycle만
             end
         end
     end
-
-    // Player 2는 고정 (시작 위치)
-    assign player2_pos_x_sim = START_X;
-    assign player2_pos_valid_sim = 1'b0;
 
     // ========================================
     // UI Render 인스턴스
@@ -147,15 +145,12 @@ module ui_render_test_top (
         .x(vga_x),
         .y(vga_y),
 
-        // Player 1 (버튼 제어)
+        // Game Logic 인터페이스 (턴제 게임)
         .player1_pos_x(player1_pos_x_sim),
-        .player1_pos_valid(player1_pos_valid_sim),
-        .player1_turn_done(player1_turn_done),
-
-        // Player 2 (고정)
         .player2_pos_x(player2_pos_x_sim),
-        .player2_pos_valid(player2_pos_valid_sim),
-        .player2_turn_done(player2_turn_done),
+        .pos_valid(pos_valid_sim),
+        .active_player(active_player_sim),
+        .turn_done(turn_done),
 
         // RGB 출력
         .r(ui_r),

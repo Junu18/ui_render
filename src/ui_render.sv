@@ -10,15 +10,12 @@ module ui_render (
     input  logic       rst,
     input  logic [9:0] x, y,
 
-    // Player 1 (Game Logic 인터페이스)
-    input  logic [9:0] player1_pos_x,      // 목표 x 좌표
-    input  logic       player1_pos_valid,  // 위치 업데이트 (1 cycle pulse)
-    output logic       player1_turn_done,  // 턴 완료 (1 cycle pulse)
-
-    // Player 2
-    input  logic [9:0] player2_pos_x,
-    input  logic       player2_pos_valid,
-    output logic       player2_turn_done,
+    // Game Logic 인터페이스 (턴제 게임)
+    input  logic [9:0] player1_pos_x,      // Player 1 목표 x 좌표
+    input  logic [9:0] player2_pos_x,      // Player 2 목표 x 좌표
+    input  logic       pos_valid,          // 위치 업데이트 (1 cycle pulse)
+    input  logic       active_player,      // 0=Player1, 1=Player2
+    output logic       turn_done,          // 턴 완료 (1 cycle pulse)
 
     // VGA 출력
     output logic [7:0] r, g, b
@@ -38,15 +35,14 @@ module ui_render (
         .clk(clk),
         .rst(rst),
         .player1_pos_x(player1_pos_x),
-        .player1_pos_valid(player1_pos_valid),
+        .player2_pos_x(player2_pos_x),
+        .pos_valid(pos_valid),
+        .active_player(active_player),
         .player1_x(player1_x),
         .player1_y(player1_y),
-        .player1_turn_done(player1_turn_done),
-        .player2_pos_x(player2_pos_x),
-        .player2_pos_valid(player2_pos_valid),
         .player2_x(player2_x),
         .player2_y(player2_y),
-        .player2_turn_done(player2_turn_done)
+        .turn_done(turn_done)
     );
 
     // ========================================

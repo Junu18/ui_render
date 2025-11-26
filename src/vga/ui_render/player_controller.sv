@@ -7,19 +7,20 @@ module player_controller (
     input  logic       clk,
     input  logic       rst,
 
-    // Player 1 (Game Logic 스타일)
-    input  logic [9:0] player1_pos_x,      // 목표 x 좌표
-    input  logic       player1_pos_valid,  // 위치 업데이트 (1 cycle pulse)
-    output logic [9:0] player1_x,          // 현재 x 좌표
-    output logic [9:0] player1_y,          // 현재 y 좌표
-    output logic       player1_turn_done,  // 턴 완료 (1 cycle pulse)
+    // Game Logic 인터페이스 (턴제 게임)
+    input  logic [9:0] player1_pos_x,      // Player 1 목표 x 좌표
+    input  logic [9:0] player2_pos_x,      // Player 2 목표 x 좌표
+    input  logic       pos_valid,          // 위치 업데이트 (1 cycle pulse)
+    input  logic       active_player,      // 0=Player1, 1=Player2
 
-    // Player 2
-    input  logic [9:0] player2_pos_x,
-    input  logic       player2_pos_valid,
-    output logic [9:0] player2_x,
-    output logic [9:0] player2_y,
-    output logic       player2_turn_done
+    // 플레이어 위치 출력
+    output logic [9:0] player1_x,          // Player 1 현재 x 좌표
+    output logic [9:0] player1_y,          // Player 1 현재 y 좌표
+    output logic [9:0] player2_x,          // Player 2 현재 x 좌표
+    output logic [9:0] player2_y,          // Player 2 현재 y 좌표
+
+    // 턴 완료 신호
+    output logic       turn_done           // 턴 완료 (1 cycle pulse)
 );
 
     // ========================================
@@ -60,8 +61,8 @@ module player_controller (
     logic [9:0] player2_x_reg, player2_y_reg;
 
     // Edge detection for pos_valid
-    logic player1_pos_valid_prev, player2_pos_valid_prev;
-    logic player1_pos_pulse, player2_pos_pulse;
+    logic pos_valid_prev;
+    logic pos_pulse;
 
     // 점프 높이 LUT (삼각형 커브)
     logic [5:0] jump_lut [0:15];
@@ -89,16 +90,13 @@ module player_controller (
     // ========================================
     always_ff @(posedge clk or posedge rst) begin
         if (rst) begin
-            player1_pos_valid_prev <= 1'b0;
-            player2_pos_valid_prev <= 1'b0;
+            pos_valid_prev <= 1'b0;
         end else begin
-            player1_pos_valid_prev <= player1_pos_valid;
-            player2_pos_valid_prev <= player2_pos_valid;
+            pos_valid_prev <= pos_valid;
         end
     end
 
-    assign player1_pos_pulse = player1_pos_valid && !player1_pos_valid_prev;
-    assign player2_pos_pulse = player2_pos_valid && !player2_pos_valid_prev;
+    assign pos_pulse = pos_valid && !pos_valid_prev;
 
     // ========================================
     // 상태 머신
@@ -121,17 +119,19 @@ module player_controller (
                 IDLE: begin
                     counter <= 5'd0;
 
-                    // Player 1 이동 시작? (pos_valid rising edge)
-                    if (player1_pos_pulse) begin
-                        current_player <= 1'b0;
-                        start_x <= player1_x_reg;
-                        target_x <= player1_pos_x;     // pos_x를 target_x로 사용
-                    end
-                    // Player 2 이동 시작?
-                    else if (player2_pos_pulse) begin
-                        current_player <= 1'b1;
-                        start_x <= player2_x_reg;
-                        target_x <= player2_pos_x;
+                    // pos_valid rising edge 감지 시
+                    if (pos_pulse) begin
+                        current_player <= active_player;  // active_player로 현재 플레이어 결정
+
+                        if (active_player == 1'b0) begin
+                            // Player 1 이동
+                            start_x <= player1_x_reg;
+                            target_x <= player1_pos_x;
+                        end else begin
+                            // Player 2 이동
+                            start_x <= player2_x_reg;
+                            target_x <= player2_pos_x;
+                        end
                     end
                 end
 
@@ -173,7 +173,7 @@ module player_controller (
     always_comb begin
         case (state)
             IDLE: begin
-                if (player1_pos_pulse || player2_pos_pulse)
+                if (pos_pulse)
                     next_state = MOVING;
                 else
                     next_state = IDLE;
@@ -257,23 +257,18 @@ module player_controller (
     // ========================================
     // turn_done 신호 생성 (1 cycle pulse)
     // ========================================
-    logic player1_turn_done_reg, player2_turn_done_reg;
+    logic turn_done_reg;
 
     always_ff @(posedge clk or posedge rst) begin
         if (rst) begin
-            player1_turn_done_reg <= 1'b0;
-            player2_turn_done_reg <= 1'b0;
+            turn_done_reg <= 1'b0;
         end else begin
             // JUMPING → IDLE 또는 FLAG_SLIDING → IDLE 전환 시
             if ((state == JUMPING && next_state == IDLE && target_x != FLAG_X) ||
                 (state == FLAG_SLIDING && next_state == IDLE)) begin
-                if (current_player == 1'b0)
-                    player1_turn_done_reg <= 1'b1;
-                else
-                    player2_turn_done_reg <= 1'b1;
+                turn_done_reg <= 1'b1;
             end else begin
-                player1_turn_done_reg <= 1'b0;
-                player2_turn_done_reg <= 1'b0;
+                turn_done_reg <= 1'b0;
             end
         end
     end
@@ -284,11 +279,12 @@ module player_controller (
     // Player 1 출력
     assign player1_x = (state != IDLE && current_player == 1'b0) ? current_x : player1_x_reg;
     assign player1_y = (state != IDLE && current_player == 1'b0) ? current_y : player1_y_reg;
-    assign player1_turn_done = player1_turn_done_reg;
 
     // Player 2 출력
     assign player2_x = (state != IDLE && current_player == 1'b1) ? current_x : player2_x_reg;
     assign player2_y = (state != IDLE && current_player == 1'b1) ? current_y : player2_y_reg;
-    assign player2_turn_done = player2_turn_done_reg;
+
+    // 턴 완료 신호
+    assign turn_done = turn_done_reg;
 
 endmodule
