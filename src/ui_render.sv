@@ -127,6 +127,112 @@ endmodule
 
 
 // ============================================
+// 플레이어 컨트롤러 (이동 + 점프)
+// ============================================
+module player_controller (
+    input  logic       clk,
+    input  logic       rst,
+    input  logic       move_trigger,
+    output logic [9:0] player_x,
+    output logic [9:0] player_y,
+    output logic [3:0] current_tile,
+    output logic       is_moving
+);
+    localparam TILE_SIZE = 48;
+    localparam PLAYER_OFFSET = 16;
+    localparam BASE_Y = 124;
+    localparam MOVE_FRAMES = 24;
+    localparam JUMP_FRAMES = 16;
+
+    typedef enum logic [1:0] {
+        IDLE    = 2'b00,
+        MOVING  = 2'b01,
+        JUMPING = 2'b10
+    } state_t;
+
+    state_t state, next_state;
+    logic [3:0] target_tile;
+    logic [4:0] counter;
+    logic [9:0] start_x, target_x, current_x;
+    logic [9:0] jump_offset;
+
+    logic [5:0] jump_lut [0:15];
+    initial begin
+        jump_lut[0]  = 0;  jump_lut[1]  = 4;  jump_lut[2]  = 8;  jump_lut[3]  = 12;
+        jump_lut[4]  = 16; jump_lut[5]  = 20; jump_lut[6]  = 24; jump_lut[7]  = 28;
+        jump_lut[8]  = 30; jump_lut[9]  = 28; jump_lut[10] = 24; jump_lut[11] = 20;
+        jump_lut[12] = 16; jump_lut[13] = 12; jump_lut[14] = 8;  jump_lut[15] = 4;
+    end
+
+    function automatic logic [9:0] tile_to_x(input logic [3:0] tile);
+        return tile * TILE_SIZE + PLAYER_OFFSET;
+    endfunction
+
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst) begin
+            state <= IDLE;
+            current_tile <= 4'd0;
+            counter <= 5'd0;
+            start_x <= tile_to_x(0);
+            target_x <= tile_to_x(0);
+        end else begin
+            state <= next_state;
+            case (state)
+                IDLE: begin
+                    counter <= 5'd0;
+                    if (move_trigger && current_tile < 9) begin
+                        start_x <= tile_to_x(current_tile);
+                        target_tile <= current_tile + 1;
+                        target_x <= tile_to_x(current_tile + 1);
+                    end
+                end
+                MOVING: begin
+                    counter <= counter + 1;
+                    if (counter == MOVE_FRAMES - 1) begin
+                        current_tile <= target_tile;
+                        counter <= 5'd0;
+                    end
+                end
+                JUMPING: begin
+                    counter <= counter + 1;
+                    if (counter == JUMP_FRAMES - 1) begin
+                        counter <= 5'd0;
+                    end
+                end
+            endcase
+        end
+    end
+
+    always_comb begin
+        case (state)
+            IDLE:    next_state = (move_trigger && current_tile < 9) ? MOVING : IDLE;
+            MOVING:  next_state = (counter == MOVE_FRAMES - 1) ? JUMPING : MOVING;
+            JUMPING: next_state = (counter == JUMP_FRAMES - 1) ? IDLE : JUMPING;
+            default: next_state = IDLE;
+        endcase
+    end
+
+    always_comb begin
+        if (state == MOVING)
+            current_x = start_x + ((target_x - start_x) * counter) / MOVE_FRAMES;
+        else
+            current_x = tile_to_x(current_tile);
+    end
+
+    always_comb begin
+        if (state == JUMPING)
+            jump_offset = jump_lut[counter[3:0]];
+        else
+            jump_offset = 0;
+    end
+
+    assign player_x = current_x;
+    assign player_y = BASE_Y - jump_offset;
+    assign is_moving = (state != IDLE);
+endmodule
+
+
+// ============================================
 // IC 칩 플레이어 렌더러 (16x16, 좌우 핀)
 // ============================================
 module player_renderer (
@@ -251,18 +357,34 @@ endmodule
 // ============================================
 module ui_render (
     input  logic       clk,
-    input  logic [9:0] x,          // 0 ~ 639
-    input  logic [9:0] y,          // 0 ~ 479
-    input  logic [9:0] player_x,   // 플레이어 x 위치
-    input  logic [9:0] player_y,   // 플레이어 y 위치
-    output logic [7:0] r,          // Red
-    output logic [7:0] g,          // Green
-    output logic [7:0] b           // Blue
+    input  logic       rst,            // 리셋 신호
+    input  logic [9:0] x,              // 0 ~ 639
+    input  logic [9:0] y,              // 0 ~ 479
+    input  logic       move_trigger,   // 한 칸 이동 명령 (펄스)
+    output logic [7:0] r,              // Red
+    output logic [7:0] g,              // Green
+    output logic [7:0] b,              // Blue
+    output logic [3:0] current_tile,   // 현재 타일 번호 (0~9)
+    output logic       is_moving       // 이동 중 플래그
 );
+
+    // 플레이어 좌표 (내부 신호)
+    logic [9:0] player_x, player_y;
 
     // 렌더러 신호
     rgb_t  sky_color, grass_color, dirt_color, player_color;
     logic  sky_en, grass_en, dirt_en, player_en;
+
+    // 플레이어 컨트롤러
+    player_controller ctrl (
+        .clk(clk),
+        .rst(rst),
+        .move_trigger(move_trigger),
+        .player_x(player_x),
+        .player_y(player_y),
+        .current_tile(current_tile),
+        .is_moving(is_moving)
+    );
 
     // 배경 렌더러
     sky_renderer sky_inst (
