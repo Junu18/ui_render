@@ -1,6 +1,6 @@
 // ui_render_test_top.sv
 // UI Render 테스트용 Top 모듈
-// 버튼으로 플레이어 이동 테스트
+// 버튼으로 Game Logic 시뮬레이션 (pos_x + pos_valid 생성)
 
 module ui_render_test_top (
     input  logic       clk_100mhz,    // 100MHz 보드 클럭
@@ -18,7 +18,7 @@ module ui_render_test_top (
     output logic [3:0] vga_g,
     output logic [3:0] vga_b,
 
-    // 디버그 LED (옵션)
+    // 디버그 LED
     output logic [3:0] led
 );
 
@@ -85,64 +85,56 @@ module ui_render_test_top (
     assign btnR_pulse = btnR_sync && !btnR_prev;
 
     // ========================================
-    // 테스트 로직: 버튼 → target_x 계산
+    // Game Logic 시뮬레이션 (버튼 → pos_x + pos_valid)
     // ========================================
     localparam TILE_SPACING = 60;
     localparam START_X = 20;
     localparam MAX_X = 620;  // 깃발 위치
 
-    logic [9:0] player1_current_x;
-    logic [9:0] player1_target_x_reg;
-    logic       player1_move_start_reg;
+    // Player 1 제어용 신호
+    logic [9:0] player1_pos_x_sim;
+    logic       player1_pos_valid_sim;
     logic       player1_turn_done;
 
     // Player 2는 고정 (테스트용)
-    logic [9:0] player2_target_x_reg;
-    logic       player2_move_start_reg;
+    logic [9:0] player2_pos_x_sim;
+    logic       player2_pos_valid_sim;
     logic       player2_turn_done;
 
-    // Player 1 제어 (버튼 입력)
+    // Player 1: 버튼 입력 → pos_x + pos_valid 생성
     always_ff @(posedge clk_25mhz or posedge btn_reset) begin
         if (btn_reset) begin
-            player1_current_x <= START_X;
-            player1_target_x_reg <= START_X;
-            player1_move_start_reg <= 1'b0;
+            player1_pos_x_sim <= START_X;
+            player1_pos_valid_sim <= 1'b0;
         end else begin
-            // turn_done 받으면 현재 위치 업데이트
-            if (player1_turn_done) begin
-                player1_current_x <= player1_target_x_reg;
-                player1_move_start_reg <= 1'b0;
-            end
-            // 버튼 입력 처리 (IDLE일 때만)
-            else if (!player1_turn_done && !player1_move_start_reg) begin
-                if (btnL_pulse) begin
-                    // 1칸 이동 (60px)
-                    if (player1_current_x + TILE_SPACING <= MAX_X) begin
-                        player1_target_x_reg <= player1_current_x + TILE_SPACING;
-                        player1_move_start_reg <= 1'b1;
-                    end
-                end else if (btnU_pulse) begin
-                    // 2칸 이동 (120px)
-                    if (player1_current_x + 2*TILE_SPACING <= MAX_X) begin
-                        player1_target_x_reg <= player1_current_x + 2*TILE_SPACING;
-                        player1_move_start_reg <= 1'b1;
-                    end
-                end else if (btnR_pulse) begin
-                    // 3칸 이동 (180px)
-                    if (player1_current_x + 3*TILE_SPACING <= MAX_X) begin
-                        player1_target_x_reg <= player1_current_x + 3*TILE_SPACING;
-                        player1_move_start_reg <= 1'b1;
-                    end
+            // 버튼 입력 처리
+            if (btnL_pulse) begin
+                // 1칸 이동 (60px)
+                if (player1_pos_x_sim + TILE_SPACING <= MAX_X) begin
+                    player1_pos_x_sim <= player1_pos_x_sim + TILE_SPACING;
+                    player1_pos_valid_sim <= 1'b1;  // 1 cycle pulse
+                end
+            end else if (btnU_pulse) begin
+                // 2칸 이동 (120px)
+                if (player1_pos_x_sim + 2*TILE_SPACING <= MAX_X) begin
+                    player1_pos_x_sim <= player1_pos_x_sim + 2*TILE_SPACING;
+                    player1_pos_valid_sim <= 1'b1;
+                end
+            end else if (btnR_pulse) begin
+                // 3칸 이동 (180px)
+                if (player1_pos_x_sim + 3*TILE_SPACING <= MAX_X) begin
+                    player1_pos_x_sim <= player1_pos_x_sim + 3*TILE_SPACING;
+                    player1_pos_valid_sim <= 1'b1;
                 end
             end else begin
-                player1_move_start_reg <= 1'b0;
+                player1_pos_valid_sim <= 1'b0;  // 1 cycle만
             end
         end
     end
 
     // Player 2는 고정 (시작 위치)
-    assign player2_target_x_reg = START_X;
-    assign player2_move_start_reg = 1'b0;
+    assign player2_pos_x_sim = START_X;
+    assign player2_pos_valid_sim = 1'b0;
 
     // ========================================
     // UI Render 인스턴스
@@ -156,13 +148,13 @@ module ui_render_test_top (
         .y(vga_y),
 
         // Player 1 (버튼 제어)
-        .player1_target_x(player1_target_x_reg),
-        .player1_move_start(player1_move_start_reg),
+        .player1_pos_x(player1_pos_x_sim),
+        .player1_pos_valid(player1_pos_valid_sim),
         .player1_turn_done(player1_turn_done),
 
         // Player 2 (고정)
-        .player2_target_x(player2_target_x_reg),
-        .player2_move_start(player2_move_start_reg),
+        .player2_pos_x(player2_pos_x_sim),
+        .player2_pos_valid(player2_pos_valid_sim),
         .player2_turn_done(player2_turn_done),
 
         // RGB 출력
@@ -189,6 +181,6 @@ module ui_render_test_top (
     // ========================================
     // 디버그 LED (현재 타일 표시)
     // ========================================
-    assign led = (player1_current_x - START_X) / TILE_SPACING;
+    assign led = (player1_pos_x_sim - START_X) / TILE_SPACING;
 
 endmodule

@@ -1,21 +1,22 @@
 // player_controller.sv
 // 플레이어 이동 + 점프 제어 (2명, 턴제)
 // 동작: 수평 이동 → 점프 (깃발 도착 시 FLAG_SLIDING)
+// Game Logic 인터페이스: pos_x + pos_valid
 
 module player_controller (
     input  logic       clk,
     input  logic       rst,
 
-    // Player 1
-    input  logic [9:0] player1_target_x,   // 목표 x 좌표
-    input  logic       player1_move_start, // 이동 시작 (1 cycle pulse)
+    // Player 1 (Game Logic 스타일)
+    input  logic [9:0] player1_pos_x,      // 목표 x 좌표
+    input  logic       player1_pos_valid,  // 위치 업데이트 (1 cycle pulse)
     output logic [9:0] player1_x,          // 현재 x 좌표
     output logic [9:0] player1_y,          // 현재 y 좌표
     output logic       player1_turn_done,  // 턴 완료 (1 cycle pulse)
 
     // Player 2
-    input  logic [9:0] player2_target_x,
-    input  logic       player2_move_start,
+    input  logic [9:0] player2_pos_x,
+    input  logic       player2_pos_valid,
     output logic [9:0] player2_x,
     output logic [9:0] player2_y,
     output logic       player2_turn_done
@@ -25,13 +26,11 @@ module player_controller (
     // 파라미터
     // ========================================
     localparam START_X = 20;             // 시작 위치
-    localparam TILE_SPACING = 60;        // 타일 간격
     localparam FLAG_X = 620;             // 깃발 위치
     localparam BASE_Y = 124;             // 플레이어 기본 y 위치 (잔디 위)
 
     localparam MOVE_FRAMES = 24;         // 수평 이동 프레임 수
     localparam JUMP_FRAMES = 16;         // 점프 프레임 수
-    localparam JUMP_HEIGHT = 30;         // 점프 높이
     localparam FLAG_SLIDE_FRAMES = 20;   // 깃발 슬라이딩 프레임 수
     localparam FLAG_TOP_Y = 90;          // 깃발 꼭대기 y 위치
 
@@ -60,9 +59,9 @@ module player_controller (
     logic [9:0] player1_x_reg, player1_y_reg;
     logic [9:0] player2_x_reg, player2_y_reg;
 
-    // Edge detection for move_start
-    logic player1_move_start_prev, player2_move_start_prev;
-    logic player1_move_pulse, player2_move_pulse;
+    // Edge detection for pos_valid
+    logic player1_pos_valid_prev, player2_pos_valid_prev;
+    logic player1_pos_pulse, player2_pos_pulse;
 
     // 점프 높이 LUT (삼각형 커브)
     logic [5:0] jump_lut [0:15];
@@ -90,16 +89,16 @@ module player_controller (
     // ========================================
     always_ff @(posedge clk or posedge rst) begin
         if (rst) begin
-            player1_move_start_prev <= 1'b0;
-            player2_move_start_prev <= 1'b0;
+            player1_pos_valid_prev <= 1'b0;
+            player2_pos_valid_prev <= 1'b0;
         end else begin
-            player1_move_start_prev <= player1_move_start;
-            player2_move_start_prev <= player2_move_start;
+            player1_pos_valid_prev <= player1_pos_valid;
+            player2_pos_valid_prev <= player2_pos_valid;
         end
     end
 
-    assign player1_move_pulse = player1_move_start && !player1_move_start_prev;
-    assign player2_move_pulse = player2_move_start && !player2_move_start_prev;
+    assign player1_pos_pulse = player1_pos_valid && !player1_pos_valid_prev;
+    assign player2_pos_pulse = player2_pos_valid && !player2_pos_valid_prev;
 
     // ========================================
     // 상태 머신
@@ -122,17 +121,17 @@ module player_controller (
                 IDLE: begin
                     counter <= 5'd0;
 
-                    // Player 1 이동 시작?
-                    if (player1_move_pulse) begin
+                    // Player 1 이동 시작? (pos_valid rising edge)
+                    if (player1_pos_pulse) begin
                         current_player <= 1'b0;
                         start_x <= player1_x_reg;
-                        target_x <= player1_target_x;
+                        target_x <= player1_pos_x;     // pos_x를 target_x로 사용
                     end
                     // Player 2 이동 시작?
-                    else if (player2_move_pulse) begin
+                    else if (player2_pos_pulse) begin
                         current_player <= 1'b1;
                         start_x <= player2_x_reg;
-                        target_x <= player2_target_x;
+                        target_x <= player2_pos_x;
                     end
                 end
 
@@ -174,7 +173,7 @@ module player_controller (
     always_comb begin
         case (state)
             IDLE: begin
-                if (player1_move_pulse || player2_move_pulse)
+                if (player1_pos_pulse || player2_pos_pulse)
                     next_state = MOVING;
                 else
                     next_state = IDLE;
