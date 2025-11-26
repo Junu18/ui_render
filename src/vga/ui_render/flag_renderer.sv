@@ -12,10 +12,9 @@ module flag_renderer (
 );
 
     // ========================================
-    // 깃발 위치 (타일 9 = 마지막 칸)
+    // 깃발 위치 (골인 지점 x=620)
     // ========================================
-    localparam FLAG_TILE = 9;
-    localparam FLAG_X_BASE = FLAG_TILE * 48 + 24;  // 타일 9 중앙 (x=456)
+    localparam FLAG_X_BASE = 620;                  // 깃발 중앙
 
     localparam POLE_X_START = FLAG_X_BASE;
     localparam POLE_X_END   = FLAG_X_BASE + 1;     // 깃대 폭 2px
