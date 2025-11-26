@@ -1,11 +1,13 @@
 // player_controller.sv
 // 플레이어 이동 + 점프 제어
-// 동작: 수평 이동 → 제자리 점프
+// 동작: 수평 이동 → 제자리 점프 (연속 이동 지원)
 
 module player_controller (
     input  logic       clk,
     input  logic       rst,
-    input  logic       move_trigger,    // 한 칸 이동 명령 (펄스)
+    input  logic       move_1,          // 1칸 이동 명령 (Red 주사위)
+    input  logic       move_2,          // 2칸 이동 명령 (Green 주사위)
+    input  logic       move_3,          // 3칸 이동 명령 (Blue 주사위)
     output logic [9:0] player_x,        // 플레이어 x 좌표
     output logic [9:0] player_y,        // 플레이어 y 좌표
     output logic [3:0] current_tile,    // 현재 타일 번호 (0~9)
@@ -42,10 +44,11 @@ module player_controller (
     logic [9:0] start_x, target_x;       // 시작/목표 x 좌표
     logic [9:0] current_x;               // 현재 x 좌표 (이동 중)
     logic [9:0] jump_offset;             // 점프 y 오프셋
+    logic [1:0] remaining_moves;         // 남은 이동 횟수 (0~3)
 
-    // Edge detection
-    logic move_trigger_prev;
-    logic move_pulse;
+    // Edge detection for move_1/2/3
+    logic move_1_prev, move_2_prev, move_3_prev;
+    logic move_1_pulse, move_2_pulse, move_3_pulse;
 
     // 점프 높이 LUT (삼각형 커브)
     // 16프레임: 0→최대→0
@@ -81,13 +84,19 @@ module player_controller (
     // ========================================
     always_ff @(posedge clk or posedge rst) begin
         if (rst) begin
-            move_trigger_prev <= 1'b0;
+            move_1_prev <= 1'b0;
+            move_2_prev <= 1'b0;
+            move_3_prev <= 1'b0;
         end else begin
-            move_trigger_prev <= move_trigger;
+            move_1_prev <= move_1;
+            move_2_prev <= move_2;
+            move_3_prev <= move_3;
         end
     end
 
-    assign move_pulse = move_trigger && !move_trigger_prev;
+    assign move_1_pulse = move_1 && !move_1_prev;
+    assign move_2_pulse = move_2 && !move_2_prev;
+    assign move_3_pulse = move_3 && !move_3_prev;
 
     // ========================================
     // 상태 머신
@@ -99,17 +108,31 @@ module player_controller (
             counter <= 5'd0;
             start_x <= tile_to_x(0);
             target_x <= tile_to_x(0);
+            remaining_moves <= 2'd0;
         end else begin
             state <= next_state;
 
             case (state)
                 IDLE: begin
                     counter <= 5'd0;
-                    if (move_pulse && current_tile < 9) begin
-                        // 이동 시작 (Rising edge에서만)
-                        start_x <= tile_to_x(current_tile);
-                        target_tile <= current_tile + 1;
-                        target_x <= tile_to_x(current_tile + 1);
+                    // 이동 명령 감지 (Rising edge)
+                    if (current_tile < 9) begin
+                        if (move_1_pulse) begin
+                            remaining_moves <= 2'd0;  // 1칸 이동 (점프 후 0)
+                            start_x <= tile_to_x(current_tile);
+                            target_tile <= current_tile + 1;
+                            target_x <= tile_to_x(current_tile + 1);
+                        end else if (move_2_pulse) begin
+                            remaining_moves <= 2'd1;  // 2칸 이동 (점프 후 1칸 남음)
+                            start_x <= tile_to_x(current_tile);
+                            target_tile <= current_tile + 1;
+                            target_x <= tile_to_x(current_tile + 1);
+                        end else if (move_3_pulse) begin
+                            remaining_moves <= 2'd2;  // 3칸 이동 (점프 후 2칸 남음)
+                            start_x <= tile_to_x(current_tile);
+                            target_tile <= current_tile + 1;
+                            target_x <= tile_to_x(current_tile + 1);
+                        end
                     end
                 end
 
@@ -126,6 +149,13 @@ module player_controller (
                     counter <= counter + 1;
                     if (counter == JUMP_FRAMES - 1) begin
                         counter <= 5'd0;
+                        // 점프 완료 후 남은 이동이 있으면 다음 타일로
+                        if (remaining_moves > 0 && current_tile < 9) begin
+                            remaining_moves <= remaining_moves - 1;
+                            start_x <= tile_to_x(target_tile);
+                            target_tile <= target_tile + 1;
+                            target_x <= tile_to_x(target_tile + 1);
+                        end
                     end
                 end
             endcase
@@ -136,7 +166,7 @@ module player_controller (
     always_comb begin
         case (state)
             IDLE: begin
-                if (move_pulse && current_tile < 9)
+                if (current_tile < 9 && (move_1_pulse || move_2_pulse || move_3_pulse))
                     next_state = MOVING;
                 else
                     next_state = IDLE;
@@ -150,10 +180,15 @@ module player_controller (
             end
 
             JUMPING: begin
-                if (counter == JUMP_FRAMES - 1)
-                    next_state = IDLE;
-                else
+                if (counter == JUMP_FRAMES - 1) begin
+                    // 남은 이동이 있으면 다시 MOVING, 없으면 IDLE
+                    if (remaining_moves > 0 && current_tile < 9)
+                        next_state = MOVING;
+                    else
+                        next_state = IDLE;
+                end else begin
                     next_state = JUMPING;
+                end
             end
 
             default: next_state = IDLE;
