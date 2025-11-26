@@ -43,6 +43,10 @@ module player_controller (
     logic [9:0] current_x;               // 현재 x 좌표 (이동 중)
     logic [9:0] jump_offset;             // 점프 y 오프셋
 
+    // Edge detection
+    logic move_trigger_prev;
+    logic move_pulse;
+
     // 점프 높이 LUT (삼각형 커브)
     // 16프레임: 0→최대→0
     logic [5:0] jump_lut [0:15];
@@ -73,6 +77,19 @@ module player_controller (
     endfunction
 
     // ========================================
+    // Edge detection (Rising edge만 감지)
+    // ========================================
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst) begin
+            move_trigger_prev <= 1'b0;
+        end else begin
+            move_trigger_prev <= move_trigger;
+        end
+    end
+
+    assign move_pulse = move_trigger && !move_trigger_prev;
+
+    // ========================================
     // 상태 머신
     // ========================================
     always_ff @(posedge clk or posedge rst) begin
@@ -88,8 +105,8 @@ module player_controller (
             case (state)
                 IDLE: begin
                     counter <= 5'd0;
-                    if (move_trigger && current_tile < 9) begin
-                        // 이동 시작
+                    if (move_pulse && current_tile < 9) begin
+                        // 이동 시작 (Rising edge에서만)
                         start_x <= tile_to_x(current_tile);
                         target_tile <= current_tile + 1;
                         target_x <= tile_to_x(current_tile + 1);
@@ -119,7 +136,7 @@ module player_controller (
     always_comb begin
         case (state)
             IDLE: begin
-                if (move_trigger && current_tile < 9)
+                if (move_pulse && current_tile < 9)
                     next_state = MOVING;
                 else
                     next_state = IDLE;

@@ -156,6 +156,10 @@ module player_controller (
     logic [9:0] start_x, target_x, current_x;
     logic [9:0] jump_offset;
 
+    // Edge detection
+    logic move_trigger_prev;
+    logic move_pulse;
+
     logic [5:0] jump_lut [0:15];
     initial begin
         jump_lut[0]  = 0;  jump_lut[1]  = 4;  jump_lut[2]  = 8;  jump_lut[3]  = 12;
@@ -168,6 +172,18 @@ module player_controller (
         return tile * TILE_SIZE + PLAYER_OFFSET;
     endfunction
 
+    // Edge detection (Rising edge만 감지)
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst) begin
+            move_trigger_prev <= 1'b0;
+        end else begin
+            move_trigger_prev <= move_trigger;
+        end
+    end
+
+    assign move_pulse = move_trigger && !move_trigger_prev;
+
+    // 상태 머신
     always_ff @(posedge clk or posedge rst) begin
         if (rst) begin
             state <= IDLE;
@@ -180,7 +196,7 @@ module player_controller (
             case (state)
                 IDLE: begin
                     counter <= 5'd0;
-                    if (move_trigger && current_tile < 9) begin
+                    if (move_pulse && current_tile < 9) begin
                         start_x <= tile_to_x(current_tile);
                         target_tile <= current_tile + 1;
                         target_x <= tile_to_x(current_tile + 1);
@@ -205,7 +221,7 @@ module player_controller (
 
     always_comb begin
         case (state)
-            IDLE:    next_state = (move_trigger && current_tile < 9) ? MOVING : IDLE;
+            IDLE:    next_state = (move_pulse && current_tile < 9) ? MOVING : IDLE;
             MOVING:  next_state = (counter == MOVE_FRAMES - 1) ? JUMPING : MOVING;
             JUMPING: next_state = (counter == JUMP_FRAMES - 1) ? IDLE : JUMPING;
             default: next_state = IDLE;
