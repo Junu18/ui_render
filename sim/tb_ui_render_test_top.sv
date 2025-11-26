@@ -144,14 +144,15 @@ module tb_ui_render_test_top;
     // ========================================
 
     // 버튼 누르기 (디바운싱 고려)
-    task press_button(input string btn_name);
+    task automatic press_button(input string btn_name);
         begin
             $display("  [%0t] Pressing %s...", $time, btn_name);
             case (btn_name)
                 "BTNL": btnL = 1;
                 "BTNU": btnU = 1;
                 "BTNR": btnR = 1;
-                "BTN_RESET": btn_reset = 1;
+                "BTNC": btnC = 1;
+                "BTND": btnD = 1;
             endcase
 
             // 버튼 홀드 (디바운싱 시간보다 길게, 1ms = 100,000 cycles @ 100MHz)
@@ -162,7 +163,8 @@ module tb_ui_render_test_top;
                 "BTNL": btnL = 0;
                 "BTNU": btnU = 0;
                 "BTNR": btnR = 0;
-                "BTN_RESET": btn_reset = 0;
+                "BTNC": btnC = 0;
+                "BTND": btnD = 0;
             endcase
 
             repeat(10) @(posedge clk_100mhz);
@@ -170,10 +172,10 @@ module tb_ui_render_test_top;
     endtask
 
     // turn_done 대기
-    task wait_for_turn_done(input string msg);
+    task wait_for_turn_done(input string context);
         begin
-            automatic int timeout_counter = 0;
-            automatic int max_timeout = 100000;  // 최대 대기 시간
+            int timeout_counter = 0;
+            int max_timeout = 100000;  // 최대 대기 시간
 
             $display("  [%0t] Waiting for turn_done (%s)...", $time, msg);
 
@@ -198,7 +200,7 @@ module tb_ui_render_test_top;
     endtask
 
     // 플레이어 위치 확인
-    task check_player_position(input int expected_x, input int expected_y, input string msg);
+    task check_player_position(input int expected_x, input int expected_y, input string context);
         begin
             if (player1_x == expected_x && player1_y == expected_y) begin
                 $display("  [%0t] ✓ %s: Position correct (x=%0d, y=%0d)",
@@ -211,10 +213,12 @@ module tb_ui_render_test_top;
     endtask
 
     // VGA 타이밍 체크 (1 frame 확인)
-    task check_vga_timing();
+    task automatic check_vga_timing();
+        int hsync_count;
+        int vsync_count;
         begin
-            automatic int hsync_count = 0;
-            automatic int vsync_count = 0;
+            int hsync_count = 0;
+            int vsync_count = 0;
 
             // Vsync 펄스 2개 대기 (1 frame)
             while (vsync_count < 2) begin
@@ -227,9 +231,10 @@ module tb_ui_render_test_top;
     endtask
 
     // pos_valid 펄스 폭 확인
-    task check_pos_valid_pulse();
+    task automatic check_pos_valid_pulse();
+        int pulse_width;
         begin
-            automatic int pulse_width = 0;
+            int pulse_width = 0;
 
             press_button("BTNL");
 
