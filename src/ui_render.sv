@@ -127,6 +127,179 @@ endmodule
 
 
 // ============================================
+// 플레이어 컨트롤러 (이동 + 점프, 연속 이동 지원)
+// ============================================
+module player_controller (
+    input  logic       clk,
+    input  logic       rst,
+    input  logic       move_1,          // 1칸 이동 명령 (Red 주사위)
+    input  logic       move_2,          // 2칸 이동 명령 (Green 주사위)
+    input  logic       move_3,          // 3칸 이동 명령 (Blue 주사위)
+    output logic [9:0] player_x,
+    output logic [9:0] player_y,
+    output logic [3:0] current_tile,
+    output logic       is_moving
+);
+    localparam TILE_SIZE = 48;
+    localparam PLAYER_OFFSET = 16;
+    localparam BASE_Y = 124;
+    localparam MOVE_FRAMES = 24;
+    localparam JUMP_FRAMES = 16;
+
+    typedef enum logic [1:0] {
+        IDLE    = 2'b00,
+        MOVING  = 2'b01,
+        JUMPING = 2'b10
+    } state_t;
+
+    state_t state, next_state;
+    logic [3:0] target_tile;
+    logic [4:0] counter;
+    logic [9:0] start_x, target_x, current_x;
+    logic [9:0] jump_offset;
+    logic [1:0] remaining_moves;         // 남은 이동 횟수 (0~3)
+
+    // Edge detection for move_1/2/3
+    logic move_1_prev, move_2_prev, move_3_prev;
+    logic move_1_pulse, move_2_pulse, move_3_pulse;
+
+    logic [5:0] jump_lut [0:15];
+    initial begin
+        jump_lut[0]  = 0;  jump_lut[1]  = 4;  jump_lut[2]  = 8;  jump_lut[3]  = 12;
+        jump_lut[4]  = 16; jump_lut[5]  = 20; jump_lut[6]  = 24; jump_lut[7]  = 28;
+        jump_lut[8]  = 30; jump_lut[9]  = 28; jump_lut[10] = 24; jump_lut[11] = 20;
+        jump_lut[12] = 16; jump_lut[13] = 12; jump_lut[14] = 8;  jump_lut[15] = 4;
+    end
+
+    function automatic logic [9:0] tile_to_x(input logic [3:0] tile);
+        return tile * TILE_SIZE + PLAYER_OFFSET;
+    endfunction
+
+    // Edge detection (Rising edge만 감지)
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst) begin
+            move_1_prev <= 1'b0;
+            move_2_prev <= 1'b0;
+            move_3_prev <= 1'b0;
+        end else begin
+            move_1_prev <= move_1;
+            move_2_prev <= move_2;
+            move_3_prev <= move_3;
+        end
+    end
+
+    assign move_1_pulse = move_1 && !move_1_prev;
+    assign move_2_pulse = move_2 && !move_2_prev;
+    assign move_3_pulse = move_3 && !move_3_prev;
+
+    // 상태 머신
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst) begin
+            state <= IDLE;
+            current_tile <= 4'd0;
+            counter <= 5'd0;
+            start_x <= tile_to_x(0);
+            target_x <= tile_to_x(0);
+            remaining_moves <= 2'd0;
+        end else begin
+            state <= next_state;
+            case (state)
+                IDLE: begin
+                    counter <= 5'd0;
+                    // 이동 명령 감지 (Rising edge)
+                    if (current_tile < 9) begin
+                        if (move_1_pulse) begin
+                            remaining_moves <= 2'd0;  // 1칸 이동 (점프 후 0)
+                            start_x <= tile_to_x(current_tile);
+                            target_tile <= current_tile + 1;
+                            target_x <= tile_to_x(current_tile + 1);
+                        end else if (move_2_pulse) begin
+                            remaining_moves <= 2'd1;  // 2칸 이동 (점프 후 1칸 남음)
+                            start_x <= tile_to_x(current_tile);
+                            target_tile <= current_tile + 1;
+                            target_x <= tile_to_x(current_tile + 1);
+                        end else if (move_3_pulse) begin
+                            remaining_moves <= 2'd2;  // 3칸 이동 (점프 후 2칸 남음)
+                            start_x <= tile_to_x(current_tile);
+                            target_tile <= current_tile + 1;
+                            target_x <= tile_to_x(current_tile + 1);
+                        end
+                    end
+                end
+                MOVING: begin
+                    counter <= counter + 1;
+                    if (counter == MOVE_FRAMES - 1) begin
+                        current_tile <= target_tile;
+                        counter <= 5'd0;
+                    end
+                end
+                JUMPING: begin
+                    counter <= counter + 1;
+                    if (counter == JUMP_FRAMES - 1) begin
+                        counter <= 5'd0;
+                        // 점프 완료 후 남은 이동이 있으면 다음 타일로
+                        if (remaining_moves > 0 && current_tile < 9) begin
+                            remaining_moves <= remaining_moves - 1;
+                            start_x <= tile_to_x(target_tile);
+                            target_tile <= target_tile + 1;
+                            target_x <= tile_to_x(target_tile + 1);
+                        end
+                    end
+                end
+            endcase
+        end
+    end
+
+    always_comb begin
+        case (state)
+            IDLE: begin
+                if (current_tile < 9 && (move_1_pulse || move_2_pulse || move_3_pulse))
+                    next_state = MOVING;
+                else
+                    next_state = IDLE;
+            end
+            MOVING: begin
+                if (counter == MOVE_FRAMES - 1)
+                    next_state = JUMPING;
+                else
+                    next_state = MOVING;
+            end
+            JUMPING: begin
+                if (counter == JUMP_FRAMES - 1) begin
+                    // 남은 이동이 있으면 다시 MOVING, 없으면 IDLE
+                    if (remaining_moves > 0 && current_tile < 9)
+                        next_state = MOVING;
+                    else
+                        next_state = IDLE;
+                end else begin
+                    next_state = JUMPING;
+                end
+            end
+            default: next_state = IDLE;
+        endcase
+    end
+
+    always_comb begin
+        if (state == MOVING)
+            current_x = start_x + ((target_x - start_x) * counter) / MOVE_FRAMES;
+        else
+            current_x = tile_to_x(current_tile);
+    end
+
+    always_comb begin
+        if (state == JUMPING)
+            jump_offset = jump_lut[counter[3:0]];
+        else
+            jump_offset = 0;
+    end
+
+    assign player_x = current_x;
+    assign player_y = BASE_Y - jump_offset;
+    assign is_moving = (state != IDLE);
+endmodule
+
+
+// ============================================
 // IC 칩 플레이어 렌더러 (16x16, 좌우 핀)
 // ============================================
 module player_renderer (
@@ -247,22 +420,103 @@ endmodule
 
 
 // ============================================
+// 골인 깃발 렌더러 (체커보드 패턴)
+// ============================================
+module flag_renderer (
+    input  logic [9:0] x,
+    input  logic [9:0] y,
+    output rgb_t       color,
+    output logic       enable
+);
+    localparam FLAG_TILE = 9;
+    localparam FLAG_X_BASE = FLAG_TILE * 48 + 24;  // 타일 9 중앙 (x=456)
+
+    localparam POLE_X_START = FLAG_X_BASE;
+    localparam POLE_X_END   = FLAG_X_BASE + 1;     // 깃대 폭 2px
+    localparam POLE_Y_TOP   = 80;                  // 깃대 위쪽
+    localparam POLE_Y_BOTTOM = 150;                // 깃대 아래 (흙 위)
+
+    localparam FLAG_X_START = FLAG_X_BASE + 2;     // 깃발 시작 (깃대 오른쪽)
+    localparam FLAG_X_END   = FLAG_X_START + 15;   // 깃발 폭 16px
+    localparam FLAG_Y_TOP   = 80;                  // 깃발 위쪽
+    localparam FLAG_Y_BOTTOM = 95;                 // 깃발 높이 16px
+
+    localparam CHECKER_SIZE = 4;
+
+    logic in_pole_area;
+    logic in_flag_area;
+    logic [3:0] flag_local_x;
+    logic [3:0] flag_local_y;
+    logic checker_pattern;
+
+    assign in_pole_area = (x >= POLE_X_START && x <= POLE_X_END) &&
+                          (y >= POLE_Y_TOP && y < POLE_Y_BOTTOM);
+
+    assign in_flag_area = (x >= FLAG_X_START && x <= FLAG_X_END) &&
+                          (y >= FLAG_Y_TOP && y < FLAG_Y_BOTTOM);
+
+    assign flag_local_x = x - FLAG_X_START;
+    assign flag_local_y = y - FLAG_Y_TOP;
+
+    // 체커보드 패턴: (x/4 + y/4) % 2
+    assign checker_pattern = ((flag_local_x[3:2] + flag_local_y[3:2]) & 1'b1);
+
+    always_comb begin
+        if (in_pole_area) begin
+            color = '{r: 8'hE0, g: 8'hE0, b: 8'hE0};  // 밝은 회색 깃대
+            enable = 1'b1;
+        end else if (in_flag_area) begin
+            if (checker_pattern) begin
+                color = BLACK;
+            end else begin
+                color = WHITE;
+            end
+            enable = 1'b1;
+        end else begin
+            enable = 1'b0;
+            color = TRANSPARENT;
+        end
+    end
+endmodule
+
+
+// ============================================
 // UI 렌더러 (Top Module)
 // ============================================
 module ui_render (
     input  logic       clk,
-    input  logic [9:0] x,          // 0 ~ 639
-    input  logic [9:0] y,          // 0 ~ 479
-    input  logic [9:0] player_x,   // 플레이어 x 위치
-    input  logic [9:0] player_y,   // 플레이어 y 위치
-    output logic [7:0] r,          // Red
-    output logic [7:0] g,          // Green
-    output logic [7:0] b           // Blue
+    input  logic       rst,            // 리셋 신호
+    input  logic [9:0] x,              // 0 ~ 639
+    input  logic [9:0] y,              // 0 ~ 479
+    input  logic       move_1,         // 1칸 이동 명령 (Red 주사위)
+    input  logic       move_2,         // 2칸 이동 명령 (Green 주사위)
+    input  logic       move_3,         // 3칸 이동 명령 (Blue 주사위)
+    output logic [7:0] r,              // Red
+    output logic [7:0] g,              // Green
+    output logic [7:0] b,              // Blue
+    output logic [3:0] current_tile,   // 현재 타일 번호 (0~9)
+    output logic       is_moving       // 이동 중 플래그
 );
 
+    // 플레이어 좌표 (내부 신호)
+    logic [9:0] player_x, player_y;
+
     // 렌더러 신호
-    rgb_t  sky_color, grass_color, dirt_color, player_color;
-    logic  sky_en, grass_en, dirt_en, player_en;
+    rgb_t  sky_color, grass_color, dirt_color, flag_color, player_color;
+    logic  sky_en, grass_en, dirt_en, flag_en, player_en;
+
+    // 플레이어 컨트롤러
+    player_controller ctrl (
+        .clk(clk),
+        .rst(rst),
+        .move_1(move_1),
+        .move_2(move_2),
+        .move_3(move_3),
+        .player_x(player_x),
+        .player_y(player_y),
+        .current_tile(current_tile),
+        .is_moving(is_moving)
+    );
 
     // 배경 렌더러
     sky_renderer sky_inst (
@@ -283,6 +537,13 @@ module ui_render (
         .enable(dirt_en)
     );
 
+    // 깃발 렌더러 (골인 지점)
+    flag_renderer flag_inst (
+        .x(x), .y(y),
+        .color(flag_color),
+        .enable(flag_en)
+    );
+
     // 플레이어 렌더러
     player_renderer player_inst (
         .x(x), .y(y),
@@ -292,7 +553,7 @@ module ui_render (
         .enable(player_en)
     );
 
-    // 레이어 합성 (우선순위: player > dirt > grass > sky)
+    // 레이어 합성 (우선순위: player > flag > dirt > grass > sky)
     rgb_t final_color;
 
     always_comb begin
@@ -308,6 +569,10 @@ module ui_render (
 
         if (dirt_en) begin
             final_color = dirt_color;
+        end
+
+        if (flag_en) begin
+            final_color = flag_color;
         end
 
         if (player_en) begin
