@@ -1,37 +1,48 @@
 // player_controller.sv
-// 플레이어 이동 + 점프 제어
-// 동작: 수평 이동 → 제자리 점프 (연속 이동 지원)
+// 플레이어 이동 + 점프 제어 (2명, 턴제)
+// 동작: 수평 이동 → 점프 (깃발 도착 시 FLAG_SLIDING)
 
 module player_controller (
     input  logic       clk,
     input  logic       rst,
-    input  logic       move_1,          // 1칸 이동 명령 (Red 주사위)
-    input  logic       move_2,          // 2칸 이동 명령 (Green 주사위)
-    input  logic       move_3,          // 3칸 이동 명령 (Blue 주사위)
-    output logic [9:0] player_x,        // 플레이어 x 좌표
-    output logic [9:0] player_y,        // 플레이어 y 좌표
-    output logic [3:0] current_tile,    // 현재 타일 번호 (0~9)
-    output logic       is_moving        // 이동/점프 중
+
+    // Player 1
+    input  logic [9:0] player1_target_x,   // 목표 x 좌표
+    input  logic       player1_move_start, // 이동 시작 (1 cycle pulse)
+    output logic [9:0] player1_x,          // 현재 x 좌표
+    output logic [9:0] player1_y,          // 현재 y 좌표
+    output logic       player1_turn_done,  // 턴 완료 (1 cycle pulse)
+
+    // Player 2
+    input  logic [9:0] player2_target_x,
+    input  logic       player2_move_start,
+    output logic [9:0] player2_x,
+    output logic [9:0] player2_y,
+    output logic       player2_turn_done
 );
 
     // ========================================
     // 파라미터
     // ========================================
-    localparam TILE_SIZE = 48;           // 타일 크기
-    localparam PLAYER_OFFSET = 16;       // 타일 중앙 오프셋
-    localparam BASE_Y = 124;             // 잔디 위 (140 - 16)
+    localparam START_X = 20;             // 시작 위치
+    localparam TILE_SPACING = 60;        // 타일 간격
+    localparam FLAG_X = 620;             // 깃발 위치
+    localparam BASE_Y = 124;             // 플레이어 기본 y 위치 (잔디 위)
 
     localparam MOVE_FRAMES = 24;         // 수평 이동 프레임 수
     localparam JUMP_FRAMES = 16;         // 점프 프레임 수
     localparam JUMP_HEIGHT = 30;         // 점프 높이
+    localparam FLAG_SLIDE_FRAMES = 20;   // 깃발 슬라이딩 프레임 수
+    localparam FLAG_TOP_Y = 90;          // 깃발 꼭대기 y 위치
 
     // ========================================
     // 상태 정의
     // ========================================
-    typedef enum logic [1:0] {
-        IDLE    = 2'b00,
-        MOVING  = 2'b01,
-        JUMPING = 2'b10
+    typedef enum logic [2:0] {
+        IDLE         = 3'b000,
+        MOVING       = 3'b001,
+        JUMPING      = 3'b010,
+        FLAG_SLIDING = 3'b011
     } state_t;
 
     state_t state, next_state;
@@ -39,19 +50,21 @@ module player_controller (
     // ========================================
     // 내부 신호
     // ========================================
-    logic [3:0] target_tile;             // 목표 타일
-    logic [4:0] counter;                 // 애니메이션 카운터
-    logic [9:0] start_x, target_x;       // 시작/목표 x 좌표
+    logic current_player;                // 0=Player1, 1=Player2
+    logic [9:0] start_x, target_x;       // 이동 시작/목표 x 좌표
     logic [9:0] current_x;               // 현재 x 좌표 (이동 중)
-    logic [9:0] jump_offset;             // 점프 y 오프셋
-    logic [1:0] remaining_moves;         // 남은 이동 횟수 (0~3)
+    logic [9:0] current_y;               // 현재 y 좌표 (점프/슬라이딩 중)
+    logic [4:0] counter;                 // 애니메이션 카운터
 
-    // Edge detection for move_1/2/3
-    logic move_1_prev, move_2_prev, move_3_prev;
-    logic move_1_pulse, move_2_pulse, move_3_pulse;
+    // 각 플레이어의 현재 위치 저장
+    logic [9:0] player1_x_reg, player1_y_reg;
+    logic [9:0] player2_x_reg, player2_y_reg;
+
+    // Edge detection for move_start
+    logic player1_move_start_prev, player2_move_start_prev;
+    logic player1_move_pulse, player2_move_pulse;
 
     // 점프 높이 LUT (삼각형 커브)
-    // 16프레임: 0→최대→0
     logic [5:0] jump_lut [0:15];
     initial begin
         jump_lut[0]  = 0;
@@ -73,30 +86,20 @@ module player_controller (
     end
 
     // ========================================
-    // 타일 좌표 계산
-    // ========================================
-    function automatic logic [9:0] tile_to_x(input logic [3:0] tile);
-        return tile * TILE_SIZE + PLAYER_OFFSET;
-    endfunction
-
-    // ========================================
     // Edge detection (Rising edge만 감지)
     // ========================================
     always_ff @(posedge clk or posedge rst) begin
         if (rst) begin
-            move_1_prev <= 1'b0;
-            move_2_prev <= 1'b0;
-            move_3_prev <= 1'b0;
+            player1_move_start_prev <= 1'b0;
+            player2_move_start_prev <= 1'b0;
         end else begin
-            move_1_prev <= move_1;
-            move_2_prev <= move_2;
-            move_3_prev <= move_3;
+            player1_move_start_prev <= player1_move_start;
+            player2_move_start_prev <= player2_move_start;
         end
     end
 
-    assign move_1_pulse = move_1 && !move_1_prev;
-    assign move_2_pulse = move_2 && !move_2_prev;
-    assign move_3_pulse = move_3 && !move_3_prev;
+    assign player1_move_pulse = player1_move_start && !player1_move_start_prev;
+    assign player2_move_pulse = player2_move_start && !player2_move_start_prev;
 
     // ========================================
     // 상태 머신
@@ -104,43 +107,43 @@ module player_controller (
     always_ff @(posedge clk or posedge rst) begin
         if (rst) begin
             state <= IDLE;
-            current_tile <= 4'd0;
             counter <= 5'd0;
-            start_x <= tile_to_x(0);
-            target_x <= tile_to_x(0);
-            remaining_moves <= 2'd0;
+            current_player <= 1'b0;
+            start_x <= START_X;
+            target_x <= START_X;
+            player1_x_reg <= START_X;
+            player1_y_reg <= BASE_Y;
+            player2_x_reg <= START_X;
+            player2_y_reg <= BASE_Y;
         end else begin
             state <= next_state;
 
             case (state)
                 IDLE: begin
                     counter <= 5'd0;
-                    // 이동 명령 감지 (Rising edge)
-                    if (current_tile < 9) begin
-                        if (move_1_pulse) begin
-                            remaining_moves <= 2'd0;  // 1칸 이동 (점프 후 0)
-                            start_x <= tile_to_x(current_tile);
-                            target_tile <= current_tile + 1;
-                            target_x <= tile_to_x(current_tile + 1);
-                        end else if (move_2_pulse) begin
-                            remaining_moves <= 2'd1;  // 2칸 이동 (점프 후 1칸 남음)
-                            start_x <= tile_to_x(current_tile);
-                            target_tile <= current_tile + 1;
-                            target_x <= tile_to_x(current_tile + 1);
-                        end else if (move_3_pulse) begin
-                            remaining_moves <= 2'd2;  // 3칸 이동 (점프 후 2칸 남음)
-                            start_x <= tile_to_x(current_tile);
-                            target_tile <= current_tile + 1;
-                            target_x <= tile_to_x(current_tile + 1);
-                        end
+
+                    // Player 1 이동 시작?
+                    if (player1_move_pulse) begin
+                        current_player <= 1'b0;
+                        start_x <= player1_x_reg;
+                        target_x <= player1_target_x;
+                    end
+                    // Player 2 이동 시작?
+                    else if (player2_move_pulse) begin
+                        current_player <= 1'b1;
+                        start_x <= player2_x_reg;
+                        target_x <= player2_target_x;
                     end
                 end
 
                 MOVING: begin
                     counter <= counter + 1;
                     if (counter == MOVE_FRAMES - 1) begin
-                        // 이동 완료, 타일 업데이트
-                        current_tile <= target_tile;
+                        // 이동 완료, 위치 업데이트
+                        if (current_player == 1'b0)
+                            player1_x_reg <= target_x;
+                        else
+                            player2_x_reg <= target_x;
                         counter <= 5'd0;
                     end
                 end
@@ -149,13 +152,18 @@ module player_controller (
                     counter <= counter + 1;
                     if (counter == JUMP_FRAMES - 1) begin
                         counter <= 5'd0;
-                        // 점프 완료 후 남은 이동이 있으면 다음 타일로
-                        if (remaining_moves > 0 && current_tile < 9) begin
-                            remaining_moves <= remaining_moves - 1;
-                            start_x <= tile_to_x(target_tile);
-                            target_tile <= target_tile + 1;
-                            target_x <= tile_to_x(target_tile + 1);
-                        end
+                    end
+                end
+
+                FLAG_SLIDING: begin
+                    counter <= counter + 1;
+                    if (counter == FLAG_SLIDE_FRAMES - 1) begin
+                        // 슬라이딩 완료, y 좌표 복귀
+                        if (current_player == 1'b0)
+                            player1_y_reg <= BASE_Y;
+                        else
+                            player2_y_reg <= BASE_Y;
+                        counter <= 5'd0;
                     end
                 end
             endcase
@@ -166,7 +174,7 @@ module player_controller (
     always_comb begin
         case (state)
             IDLE: begin
-                if (current_tile < 9 && (move_1_pulse || move_2_pulse || move_3_pulse))
+                if (player1_move_pulse || player2_move_pulse)
                     next_state = MOVING;
                 else
                     next_state = IDLE;
@@ -181,14 +189,21 @@ module player_controller (
 
             JUMPING: begin
                 if (counter == JUMP_FRAMES - 1) begin
-                    // 남은 이동이 있으면 다시 MOVING, 없으면 IDLE
-                    if (remaining_moves > 0 && current_tile < 9)
-                        next_state = MOVING;
+                    // 깃발 도착 (x=620)이면 FLAG_SLIDING, 아니면 IDLE
+                    if (target_x == FLAG_X)
+                        next_state = FLAG_SLIDING;
                     else
                         next_state = IDLE;
                 end else begin
                     next_state = JUMPING;
                 end
+            end
+
+            FLAG_SLIDING: begin
+                if (counter == FLAG_SLIDE_FRAMES - 1)
+                    next_state = IDLE;
+                else
+                    next_state = FLAG_SLIDING;
             end
 
             default: next_state = IDLE;
@@ -201,30 +216,80 @@ module player_controller (
     always_comb begin
         if (state == MOVING) begin
             // 선형 보간 (start_x → target_x)
-            // x = start_x + (target_x - start_x) * (counter / MOVE_FRAMES)
-            // 간단하게: 비트 시프트 사용
             current_x = start_x + ((target_x - start_x) * counter) / MOVE_FRAMES;
         end else begin
-            current_x = tile_to_x(current_tile);
+            // 이동 중이 아니면 현재 플레이어의 저장된 위치
+            if (current_player == 1'b0)
+                current_x = player1_x_reg;
+            else
+                current_x = player2_x_reg;
         end
     end
 
     // ========================================
-    // Y 좌표 계산 (점프)
+    // Y 좌표 계산 (점프 + 깃발 슬라이딩)
     // ========================================
+    logic [9:0] jump_offset;
+    logic [9:0] slide_y;
+
     always_comb begin
+        // 점프 오프셋
         if (state == JUMPING) begin
             jump_offset = jump_lut[counter[3:0]];
         end else begin
             jump_offset = 0;
+        end
+
+        // 깃발 슬라이딩 y 좌표 (선형 감소)
+        if (state == FLAG_SLIDING) begin
+            slide_y = FLAG_TOP_Y + ((BASE_Y - FLAG_TOP_Y) * counter) / FLAG_SLIDE_FRAMES;
+        end else begin
+            slide_y = BASE_Y;
+        end
+
+        // 최종 y 좌표
+        if (state == FLAG_SLIDING) begin
+            current_y = slide_y;
+        end else begin
+            current_y = BASE_Y - jump_offset;
+        end
+    end
+
+    // ========================================
+    // turn_done 신호 생성 (1 cycle pulse)
+    // ========================================
+    logic player1_turn_done_reg, player2_turn_done_reg;
+
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst) begin
+            player1_turn_done_reg <= 1'b0;
+            player2_turn_done_reg <= 1'b0;
+        end else begin
+            // JUMPING → IDLE 또는 FLAG_SLIDING → IDLE 전환 시
+            if ((state == JUMPING && next_state == IDLE && target_x != FLAG_X) ||
+                (state == FLAG_SLIDING && next_state == IDLE)) begin
+                if (current_player == 1'b0)
+                    player1_turn_done_reg <= 1'b1;
+                else
+                    player2_turn_done_reg <= 1'b1;
+            end else begin
+                player1_turn_done_reg <= 1'b0;
+                player2_turn_done_reg <= 1'b0;
+            end
         end
     end
 
     // ========================================
     // 출력
     // ========================================
-    assign player_x = current_x;
-    assign player_y = BASE_Y - jump_offset;
-    assign is_moving = (state != IDLE);
+    // Player 1 출력
+    assign player1_x = (state != IDLE && current_player == 1'b0) ? current_x : player1_x_reg;
+    assign player1_y = (state != IDLE && current_player == 1'b0) ? current_y : player1_y_reg;
+    assign player1_turn_done = player1_turn_done_reg;
+
+    // Player 2 출력
+    assign player2_x = (state != IDLE && current_player == 1'b1) ? current_x : player2_x_reg;
+    assign player2_y = (state != IDLE && current_player == 1'b1) ? current_y : player2_y_reg;
+    assign player2_turn_done = player2_turn_done_reg;
 
 endmodule
