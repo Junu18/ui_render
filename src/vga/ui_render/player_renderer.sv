@@ -6,6 +6,7 @@ import color_pkg::*;
 module player_renderer (
     input  logic [9:0] x,           // 화면 x 좌표
     input  logic [9:0] y,           // 화면 y 좌표
+    input  logic       player_id,   // 0 = Player1(빨강), 1 = Player2(파랑)
     input  logic [9:0] player_x,    // 플레이어 x 위치
     input  logic [9:0] player_y,    // 플레이어 y 위치
     output rgb_t       color,       // RGB 출력
@@ -24,6 +25,12 @@ module player_renderer (
 
     // IC 칩 스프라이트 (16x16, 좌우 핀)
     // . = 투명, S = 핀(은색), G = 테두리(회색), B = 몸체(검정), R = 빨간점
+    rgb_t accent_color;
+
+    always_comb begin
+        accent_color = (player_id == 1'b1) ? IC_BLUE : IC_RED;
+    end
+
     always_comb begin
         if (in_player_area) begin
             case (sprite_y)
@@ -58,7 +65,7 @@ module player_renderer (
                         color = IC_GRAY;
                         enable = 1'b1;
                     end else if (sprite_x >= 6 && sprite_x <= 7) begin
-                        color = IC_RED;  // 빨간 점
+                        color = accent_color;  // 방향 표시 색상 (플레이어별)
                         enable = 1'b1;
                     end else if (sprite_x >= 2 && sprite_x <= 13) begin
                         color = IC_BLACK;
