@@ -420,6 +420,67 @@ endmodule
 
 
 // ============================================
+// 골인 깃발 렌더러 (체커보드 패턴)
+// ============================================
+module flag_renderer (
+    input  logic [9:0] x,
+    input  logic [9:0] y,
+    output rgb_t       color,
+    output logic       enable
+);
+    localparam FLAG_TILE = 9;
+    localparam FLAG_X_BASE = FLAG_TILE * 48 + 24;  // 타일 9 중앙 (x=456)
+
+    localparam POLE_X_START = FLAG_X_BASE;
+    localparam POLE_X_END   = FLAG_X_BASE + 1;     // 깃대 폭 2px
+    localparam POLE_Y_TOP   = 80;                  // 깃대 위쪽
+    localparam POLE_Y_BOTTOM = 150;                // 깃대 아래 (흙 위)
+
+    localparam FLAG_X_START = FLAG_X_BASE + 2;     // 깃발 시작 (깃대 오른쪽)
+    localparam FLAG_X_END   = FLAG_X_START + 15;   // 깃발 폭 16px
+    localparam FLAG_Y_TOP   = 80;                  // 깃발 위쪽
+    localparam FLAG_Y_BOTTOM = 95;                 // 깃발 높이 16px
+
+    localparam CHECKER_SIZE = 4;
+
+    logic in_pole_area;
+    logic in_flag_area;
+    logic [3:0] flag_local_x;
+    logic [3:0] flag_local_y;
+    logic checker_pattern;
+
+    assign in_pole_area = (x >= POLE_X_START && x <= POLE_X_END) &&
+                          (y >= POLE_Y_TOP && y < POLE_Y_BOTTOM);
+
+    assign in_flag_area = (x >= FLAG_X_START && x <= FLAG_X_END) &&
+                          (y >= FLAG_Y_TOP && y < FLAG_Y_BOTTOM);
+
+    assign flag_local_x = x - FLAG_X_START;
+    assign flag_local_y = y - FLAG_Y_TOP;
+
+    // 체커보드 패턴: (x/4 + y/4) % 2
+    assign checker_pattern = ((flag_local_x[3:2] + flag_local_y[3:2]) & 1'b1);
+
+    always_comb begin
+        if (in_pole_area) begin
+            color = '{r: 8'hE0, g: 8'hE0, b: 8'hE0};  // 밝은 회색 깃대
+            enable = 1'b1;
+        end else if (in_flag_area) begin
+            if (checker_pattern) begin
+                color = BLACK;
+            end else begin
+                color = WHITE;
+            end
+            enable = 1'b1;
+        end else begin
+            enable = 1'b0;
+            color = TRANSPARENT;
+        end
+    end
+endmodule
+
+
+// ============================================
 // UI 렌더러 (Top Module)
 // ============================================
 module ui_render (
@@ -441,8 +502,8 @@ module ui_render (
     logic [9:0] player_x, player_y;
 
     // 렌더러 신호
-    rgb_t  sky_color, grass_color, dirt_color, player_color;
-    logic  sky_en, grass_en, dirt_en, player_en;
+    rgb_t  sky_color, grass_color, dirt_color, flag_color, player_color;
+    logic  sky_en, grass_en, dirt_en, flag_en, player_en;
 
     // 플레이어 컨트롤러
     player_controller ctrl (
@@ -476,6 +537,13 @@ module ui_render (
         .enable(dirt_en)
     );
 
+    // 깃발 렌더러 (골인 지점)
+    flag_renderer flag_inst (
+        .x(x), .y(y),
+        .color(flag_color),
+        .enable(flag_en)
+    );
+
     // 플레이어 렌더러
     player_renderer player_inst (
         .x(x), .y(y),
@@ -485,7 +553,7 @@ module ui_render (
         .enable(player_en)
     );
 
-    // 레이어 합성 (우선순위: player > dirt > grass > sky)
+    // 레이어 합성 (우선순위: player > flag > dirt > grass > sky)
     rgb_t final_color;
 
     always_comb begin
@@ -501,6 +569,10 @@ module ui_render (
 
         if (dirt_en) begin
             final_color = dirt_color;
+        end
+
+        if (flag_en) begin
+            final_color = flag_color;
         end
 
         if (player_en) begin
