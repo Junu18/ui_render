@@ -64,27 +64,11 @@ module player_controller (
     logic pos_valid_prev;
     logic pos_pulse;
 
-    // 점프 높이 ROM (삼각형 커브) - 합성 가능한 방식
-    function logic [5:0] jump_height_rom(input logic [3:0] index);
-        case (index)
-            4'd0:  return 6'd0;
-            4'd1:  return 6'd4;
-            4'd2:  return 6'd8;
-            4'd3:  return 6'd12;
-            4'd4:  return 6'd16;
-            4'd5:  return 6'd20;
-            4'd6:  return 6'd24;
-            4'd7:  return 6'd28;
-            4'd8:  return 6'd30;   // 최고점
-            4'd9:  return 6'd28;
-            4'd10: return 6'd24;
-            4'd11: return 6'd20;
-            4'd12: return 6'd16;
-            4'd13: return 6'd12;
-            4'd14: return 6'd8;
-            4'd15: return 6'd4;
-        endcase
-    endfunction
+    // 점프 높이 LUT (삼각형 커브) - localparam array
+    localparam logic [5:0] JUMP_LUT [0:15] = '{
+        6'd0,  6'd4,  6'd8,  6'd12, 6'd16, 6'd20, 6'd24, 6'd28,
+        6'd30, 6'd28, 6'd24, 6'd20, 6'd16, 6'd12, 6'd8,  6'd4
+    };
 
     // ========================================
     // Edge detection (Rising edge만 감지)
@@ -233,9 +217,9 @@ module player_controller (
     logic [9:0] slide_y;
 
     always_comb begin
-        // 점프 오프셋 (ROM 함수 사용)
+        // 점프 오프셋 (LUT 사용)
         if (state == JUMPING) begin
-            jump_offset = jump_height_rom(counter[3:0]);
+            jump_offset = JUMP_LUT[counter[3:0]];
         end else begin
             jump_offset = 0;
         end
