@@ -36,11 +36,18 @@ package color_pkg;
     parameter rgb_t IC_BLACK       = '{r: 8'h20, g: 8'h20, b: 8'h20};  // IC 몸체 (검정)
     parameter rgb_t IC_GRAY        = '{r: 8'h50, g: 8'h50, b: 8'h50};  // IC 테두리 (다크 그레이)
     parameter rgb_t IC_SILVER      = '{r: 8'hC0, g: 8'hC0, b: 8'hC0};  // 메탈 핀 (은색)
-    parameter rgb_t IC_RED         = '{r: 8'hFF, g: 8'h00, b: 8'h00};  // 방향 표시 (빨강)
+    parameter rgb_t IC_RED         = '{r: 8'hFF, g: 8'h00, b: 8'h00};  // 방향 표시 (Player1)
+    parameter rgb_t IC_BLUE        = '{r: 8'h1E, g: 8'h90, b: 8'hFF};  // 방향 표시 (Player2)
 
     parameter rgb_t BOX_YELLOW     = '{r: 8'hFF, g: 8'hCC, b: 8'h00};  // 노란색 (? 박스)
     parameter rgb_t BOX_ORANGE     = '{r: 8'hFF, g: 8'h99, b: 8'h00};  // 주황색 (테두리)
     parameter rgb_t BOX_BROWN      = '{r: 8'h8B, g: 8'h4F, b: 8'h13};  // 갈색 (그림자)
+
+    // ========================================
+    // 깃발 색상
+    // ========================================
+    parameter rgb_t FLAG_GOLD      = '{r: 8'hFF, g: 8'hD7, b: 8'h00};
+    parameter rgb_t FLAG_GREEN     = '{r: 8'h00, g: 8'hB9, b: 8'h5B};
 
     // ========================================
     // UI 색상
