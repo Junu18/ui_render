@@ -5,6 +5,16 @@
 set_property -dict { PACKAGE_PIN W5   IOSTANDARD LVCMOS33 } [get_ports clk_100mhz]
 create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports clk_100mhz]
 
+## Generated Clock (25MHz) - VGA 픽셀 클럭
+create_generated_clock -name clk_25mhz -source [get_ports clk_100mhz] \
+    -divide_by 4 [get_pins {clk_div_reg[1]/Q}]
+
+## Asynchronous Inputs (Buttons) - False Path
+set_false_path -from [get_ports btn_reset]
+set_false_path -from [get_ports btnL]
+set_false_path -from [get_ports btnU]
+set_false_path -from [get_ports btnR]
+
 ## Reset Button (Center)
 set_property -dict { PACKAGE_PIN U18  IOSTANDARD LVCMOS33 } [get_ports btn_reset]
 

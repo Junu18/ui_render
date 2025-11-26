@@ -176,6 +176,9 @@ module ui_render_test_top (
     // ========================================
     // 디버그 LED (현재 타일 표시)
     // ========================================
-    assign led = (player1_pos_x_sim - START_X) / TILE_SPACING;
+    // 나누기 대신 비트 시프트 사용 (60 ≈ 64 = 2^6)
+    logic [9:0] tile_offset;
+    assign tile_offset = player1_pos_x_sim - START_X;
+    assign led = tile_offset[9:6];  // /64 근사치 (실제: /60)
 
 endmodule
