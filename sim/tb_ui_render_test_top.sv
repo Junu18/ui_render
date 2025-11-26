@@ -14,35 +14,34 @@ module tb_ui_render_test_top;
     // ========================================
     // DUT 신호
     // ========================================
-    logic       clk;
-    logic       btnC, btnL, btnU, btnR, btnD;
-    logic [3:0] vgaRed, vgaGreen, vgaBlue;
-    logic       Hsync, Vsync;
+    logic       clk_100mhz;
+    logic       btn_reset, btnL, btnU, btnR;
+    logic [3:0] vga_r, vga_g, vga_b;
+    logic       vga_hsync, vga_vsync;
     logic [3:0] led;
 
     // ========================================
     // 클럭 생성 (100MHz)
     // ========================================
     initial begin
-        clk = 0;
-        forever #5 clk = ~clk;  // 10ns period = 100MHz
+        clk_100mhz = 0;
+        forever #5 clk_100mhz = ~clk_100mhz;  // 10ns period = 100MHz
     end
 
     // ========================================
     // DUT 인스턴스
     // ========================================
     ui_render_test_top dut (
-        .clk(clk),
-        .btnC(btnC),
+        .clk_100mhz(clk_100mhz),
+        .btn_reset(btn_reset),
         .btnL(btnL),
         .btnU(btnU),
         .btnR(btnR),
-        .btnD(btnD),
-        .vgaRed(vgaRed),
-        .vgaGreen(vgaGreen),
-        .vgaBlue(vgaBlue),
-        .Hsync(Hsync),
-        .Vsync(Vsync),
+        .vga_r(vga_r),
+        .vga_g(vga_g),
+        .vga_b(vga_b),
+        .vga_hsync(vga_hsync),
+        .vga_vsync(vga_vsync),
         .led(led)
     );
 
@@ -81,18 +80,17 @@ module tb_ui_render_test_top;
         $display("========================================");
 
         // 초기화
-        btnC = 0;
+        btn_reset = 0;
         btnL = 0;
         btnU = 0;
         btnR = 0;
-        btnD = 0;
 
         // 1. 리셋
         $display("\n[%0t] Test 1: Reset", $time);
-        btnC = 1;
-        repeat(10) @(posedge clk);
-        btnC = 0;
-        repeat(10) @(posedge clk);
+        btn_reset = 1;
+        repeat(10) @(posedge clk_100mhz);
+        btn_reset = 0;
+        repeat(10) @(posedge clk_100mhz);
 
         check_player_position(20, 124, "After reset");
 
@@ -137,7 +135,7 @@ module tb_ui_render_test_top;
         $display("All tests completed!");
         $display("========================================");
 
-        repeat(100) @(posedge clk);
+        repeat(100) @(posedge clk_100mhz);
         $finish;
     end
 
@@ -153,37 +151,35 @@ module tb_ui_render_test_top;
                 "BTNL": btnL = 1;
                 "BTNU": btnU = 1;
                 "BTNR": btnR = 1;
-                "BTNC": btnC = 1;
-                "BTND": btnD = 1;
+                "BTN_RESET": btn_reset = 1;
             endcase
 
             // 버튼 홀드 (디바운싱 시간보다 길게, 1ms = 100,000 cycles @ 100MHz)
             // 시뮬레이션에서는 짧게 (100 cycles)
-            repeat(100) @(posedge clk);
+            repeat(100) @(posedge clk_100mhz);
 
             case (btn_name)
                 "BTNL": btnL = 0;
                 "BTNU": btnU = 0;
                 "BTNR": btnR = 0;
-                "BTNC": btnC = 0;
-                "BTND": btnD = 0;
+                "BTN_RESET": btn_reset = 0;
             endcase
 
-            repeat(10) @(posedge clk);
+            repeat(10) @(posedge clk_100mhz);
         end
     endtask
 
     // turn_done 대기
-    task wait_for_turn_done(input string context);
+    task wait_for_turn_done(input string msg);
         begin
-            int timeout_counter = 0;
-            int max_timeout = 100000;  // 최대 대기 시간
+            automatic int timeout_counter = 0;
+            automatic int max_timeout = 100000;  // 최대 대기 시간
 
-            $display("  [%0t] Waiting for turn_done (%s)...", $time, context);
+            $display("  [%0t] Waiting for turn_done (%s)...", $time, msg);
 
             // turn_done 펄스 대기
             while (!turn_done && timeout_counter < max_timeout) begin
-                @(posedge clk);
+                @(posedge clk_100mhz);
                 timeout_counter++;
             end
 
@@ -194,7 +190,7 @@ module tb_ui_render_test_top;
             end
 
             // turn_done 펄스가 1 cycle인지 확인
-            @(posedge clk);
+            @(posedge clk_100mhz);
             if (turn_done) begin
                 $display("  [%0t] ✗ ERROR: turn_done should be 1 cycle pulse!", $time);
             end
@@ -202,14 +198,14 @@ module tb_ui_render_test_top;
     endtask
 
     // 플레이어 위치 확인
-    task check_player_position(input int expected_x, input int expected_y, input string context);
+    task check_player_position(input int expected_x, input int expected_y, input string msg);
         begin
             if (player1_x == expected_x && player1_y == expected_y) begin
                 $display("  [%0t] ✓ %s: Position correct (x=%0d, y=%0d)",
-                         $time, context, player1_x, player1_y);
+                         $time, msg, player1_x, player1_y);
             end else begin
                 $display("  [%0t] ✗ %s: Position mismatch! Expected (x=%0d, y=%0d), Got (x=%0d, y=%0d)",
-                         $time, context, expected_x, expected_y, player1_x, player1_y);
+                         $time, msg, expected_x, expected_y, player1_x, player1_y);
             end
         end
     endtask
@@ -217,13 +213,13 @@ module tb_ui_render_test_top;
     // VGA 타이밍 체크 (1 frame 확인)
     task check_vga_timing();
         begin
-            int hsync_count = 0;
-            int vsync_count = 0;
+            automatic int hsync_count = 0;
+            automatic int vsync_count = 0;
 
             // Vsync 펄스 2개 대기 (1 frame)
             while (vsync_count < 2) begin
-                @(posedge clk);
-                if (Vsync) vsync_count++;
+                @(posedge clk_100mhz);
+                if (vga_vsync) vsync_count++;
             end
 
             $display("  [%0t] ✓ VGA frame detected", $time);
@@ -233,18 +229,18 @@ module tb_ui_render_test_top;
     // pos_valid 펄스 폭 확인
     task check_pos_valid_pulse();
         begin
-            int pulse_width = 0;
+            automatic int pulse_width = 0;
 
             press_button("BTNL");
 
             // pos_valid rising edge 대기
-            @(posedge clk);
-            while (!pos_valid) @(posedge clk);
+            @(posedge clk_100mhz);
+            while (!pos_valid) @(posedge clk_100mhz);
 
             // 펄스 폭 측정
             while (pos_valid) begin
                 pulse_width++;
-                @(posedge clk);
+                @(posedge clk_100mhz);
             end
 
             if (pulse_width == 1) begin
@@ -261,7 +257,7 @@ module tb_ui_render_test_top;
     // ========================================
 
     // FSM 상태 변화 모니터
-    always @(posedge clk) begin
+    always @(posedge clk_100mhz) begin
         if (fsm_state != $past(fsm_state)) begin
             $display("  [%0t] FSM State: %s → %s",
                      $time, $past(state_name), state_name);
@@ -269,7 +265,7 @@ module tb_ui_render_test_top;
     end
 
     // JUMPING 상태 중 상세 모니터링
-    always @(posedge clk) begin
+    always @(posedge clk_100mhz) begin
         if (fsm_state == 3'b010) begin  // JUMPING
             $display("  [%0t] JUMPING: counter=%0d, jump_offset=%0d, current_y=%0d, player1_y=%0d",
                      $time, counter, jump_offset, current_y, player1_y);
@@ -277,7 +273,7 @@ module tb_ui_render_test_top;
     end
 
     // pos_valid 펄스 감지
-    always @(posedge clk) begin
+    always @(posedge clk_100mhz) begin
         if (pos_valid && !$past(pos_valid)) begin
             $display("  [%0t] pos_valid pulse detected (active_player=%0d, pos_x=%0d)",
                      $time, active_player, player1_pos_x);
@@ -285,7 +281,7 @@ module tb_ui_render_test_top;
     end
 
     // turn_done 펄스 감지
-    always @(posedge clk) begin
+    always @(posedge clk_100mhz) begin
         if (turn_done && !$past(turn_done)) begin
             $display("  [%0t] turn_done pulse detected", $time);
         end
