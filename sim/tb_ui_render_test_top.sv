@@ -151,8 +151,6 @@ module tb_ui_render_test_top;
                 "BTNL": btnL = 1;
                 "BTNU": btnU = 1;
                 "BTNR": btnR = 1;
-                "BTNC": btnC = 1;
-                "BTND": btnD = 1;
             endcase
 
             // 버튼 홀드 (디바운싱 시간보다 길게, 1ms = 100,000 cycles @ 100MHz)
@@ -163,8 +161,6 @@ module tb_ui_render_test_top;
                 "BTNL": btnL = 0;
                 "BTNU": btnU = 0;
                 "BTNR": btnR = 0;
-                "BTNC": btnC = 0;
-                "BTND": btnD = 0;
             endcase
 
             repeat(10) @(posedge clk_100mhz);
@@ -172,10 +168,12 @@ module tb_ui_render_test_top;
     endtask
 
     // turn_done 대기
-    task wait_for_turn_done(input string context);
+    task automatic wait_for_turn_done(input string msg);
+        int timeout_counter;
+        int max_timeout;
         begin
-            int timeout_counter = 0;
-            int max_timeout = 100000;  // 최대 대기 시간
+            timeout_counter = 0;
+            max_timeout = 100000;  // 최대 대기 시간
 
             $display("  [%0t] Waiting for turn_done (%s)...", $time, msg);
 
@@ -200,7 +198,7 @@ module tb_ui_render_test_top;
     endtask
 
     // 플레이어 위치 확인
-    task check_player_position(input int expected_x, input int expected_y, input string context);
+    task automatic check_player_position(input int expected_x, input int expected_y, input string msg);
         begin
             if (player1_x == expected_x && player1_y == expected_y) begin
                 $display("  [%0t] ✓ %s: Position correct (x=%0d, y=%0d)",
@@ -217,8 +215,8 @@ module tb_ui_render_test_top;
         int hsync_count;
         int vsync_count;
         begin
-            int hsync_count = 0;
-            int vsync_count = 0;
+            hsync_count = 0;
+            vsync_count = 0;
 
             // Vsync 펄스 2개 대기 (1 frame)
             while (vsync_count < 2) begin
@@ -234,7 +232,7 @@ module tb_ui_render_test_top;
     task automatic check_pos_valid_pulse();
         int pulse_width;
         begin
-            int pulse_width = 0;
+            pulse_width = 0;
 
             press_button("BTNL");
 
