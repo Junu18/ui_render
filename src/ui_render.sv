@@ -25,8 +25,8 @@ module ui_render (
     // 내부 신호
     // ========================================
     logic [9:0] player1_x, player1_y, player2_x, player2_y;
-    rgb_t sky_color, grass_color, dirt_color, flag_color, player1_color, player2_color, qbox_color;
-    logic sky_en, grass_en, dirt_en, flag_en, player1_en, player2_en, qbox_en;
+    rgb_t sky_color, grass_color, dirt_color, flag_color, player1_color, player2_color, qbox_color, finish_color;
+    logic sky_en, grass_en, dirt_en, flag_en, player1_en, player2_en, qbox_en, finish_en;
 
     // ========================================
     // 플레이어 컨트롤러
@@ -80,9 +80,9 @@ module ui_render (
     );
 
     // ========================================
-    // 물음표 박스 렌더러 (타일 4 위치)
+    // 물음표 박스 렌더러 (타일 3 위치)
     // ========================================
-    localparam QBOX_X = 260;  // 타일 4 위치 (20 + 4*60)
+    localparam QBOX_X = 200;  // 타일 3 위치 (20 + 3*60)
     localparam QBOX_Y = 116;  // 플레이어보다 약간 위 (BASE_Y - 8)
 
     question_box_renderer qbox_inst (
@@ -92,6 +92,21 @@ module ui_render (
         .box_y(QBOX_Y),
         .color(qbox_color),
         .enable(qbox_en)
+    );
+
+    // ========================================
+    // FINISH 텍스트 렌더러 (깃발 위)
+    // ========================================
+    localparam FINISH_X = 570;  // 깃발 근처 (620 - 50)
+    localparam FINISH_Y = 80;   // 깃발 위쪽
+
+    finish_text_renderer finish_inst (
+        .x(x),
+        .y(y),
+        .text_x(FINISH_X),
+        .text_y(FINISH_Y),
+        .color(finish_color),
+        .enable(finish_en)
     );
 
     // ========================================
@@ -118,7 +133,7 @@ module ui_render (
     );
 
     // ========================================
-    // 레이어 합성 (우선순위: player1 > player2 > qbox > flag > dirt > grass > sky)
+    // 레이어 합성 (우선순위: finish > player1 > player2 > qbox > flag > dirt > grass > sky)
     // ========================================
     rgb_t final_color;
 
@@ -132,6 +147,7 @@ module ui_render (
         if (qbox_en)    final_color = qbox_color;     // 물음표 박스
         if (player2_en) final_color = player2_color;
         if (player1_en) final_color = player1_color;
+        if (finish_en)  final_color = finish_color;   // FINISH 텍스트 (최상위)
     end
 
     // ========================================
