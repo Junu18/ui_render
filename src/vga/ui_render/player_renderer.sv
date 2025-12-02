@@ -1,5 +1,5 @@
 // player_renderer.sv
-// Kirby-style 플레이어 (16x16 픽셀)
+// Kirby-style 플레이어 (16x16 픽셀, 측면 뷰 - 오른쪽 보기)
 // Player 1: Blue Bandana Kirby
 // Player 2: Christmas Kirby (Santa Hat)
 
@@ -37,7 +37,7 @@ module player_renderer (
     localparam rgb_t ROSY_PINK        = '{r: 8'd255, g: 8'd120, b: 8'd140};  // 볼터치
     localparam rgb_t FEET_RED         = '{r: 8'd220, g: 8'd60,  b: 8'd80};   // 발
 
-    // Kirby 스프라이트 (16x16)
+    // Kirby 스프라이트 (16x16, 측면 뷰 - 오른쪽 보기)
     always_comb begin
         if (in_player_area) begin
             enable = 1'b0;
@@ -45,12 +45,12 @@ module player_renderer (
 
             if (player_id == 1'b0) begin
                 // ========================================
-                // Player 1: Blue Bandana Kirby
+                // Player 1: Blue Bandana Kirby (측면 뷰)
                 // ========================================
                 case (sprite_y)
                     // Row 0: 두건 상단
                     4'd0: begin
-                        if (sprite_x >= 4 && sprite_x <= 9) begin
+                        if (sprite_x >= 6 && sprite_x <= 11) begin
                             color = BLUE_DARK;
                             enable = 1'b1;
                         end
@@ -58,16 +58,24 @@ module player_renderer (
 
                     // Row 1: 두건
                     4'd1: begin
-                        if (sprite_x >= 3 && sprite_x <= 10) begin
-                            color = (sprite_x >= 4 && sprite_x <= 9) ? BLUE_BANDANA : BLUE_DARK;
+                        if (sprite_x >= 5 && sprite_x <= 12) begin
+                            color = (sprite_x >= 6 && sprite_x <= 11) ? BLUE_BANDANA : BLUE_DARK;
                             enable = 1'b1;
                         end
                     end
 
-                    // Row 2: 두건 + 몸체 시작
+                    // Row 2: 두건
                     4'd2: begin
-                        if (sprite_x >= 2 && sprite_x <= 11) begin
-                            if (sprite_x >= 3 && sprite_x <= 10) begin
+                        if (sprite_x >= 4 && sprite_x <= 12) begin
+                            color = (sprite_x >= 5 && sprite_x <= 11) ? BLUE_BANDANA : BLUE_DARK;
+                            enable = 1'b1;
+                        end
+                    end
+
+                    // Row 3: 두건 + 몸체 시작
+                    4'd3: begin
+                        if (sprite_x >= 3 && sprite_x <= 12) begin
+                            if (sprite_x >= 8 && sprite_x <= 12) begin
                                 color = BLUE_BANDANA;
                             end else begin
                                 color = KIRBY_PINK;
@@ -76,24 +84,10 @@ module player_renderer (
                         end
                     end
 
-                    // Row 3: 두건 끝 + 몸체
-                    4'd3: begin
-                        if (sprite_x >= 1 && sprite_x <= 12) begin
-                            if (sprite_x >= 2 && sprite_x <= 11) begin
-                                color = KIRBY_PINK;
-                            end else begin
-                                color = KIRBY_PINK_DARK;
-                            end
-                            enable = 1'b1;
-                        end
-                    end
-
-                    // Row 4-5: 눈
-                    4'd4, 4'd5: begin
-                        if (sprite_x >= 1 && sprite_x <= 12) begin
-                            if ((sprite_x >= 3 && sprite_x <= 4) || (sprite_x >= 9 && sprite_x <= 10)) begin
-                                color = BLACK;  // 눈
-                            end else if (sprite_x == 1 || sprite_x == 12) begin
+                    // Row 4: 몸체
+                    4'd4: begin
+                        if (sprite_x >= 2 && sprite_x <= 13) begin
+                            if (sprite_x == 2 || sprite_x == 13) begin
                                 color = KIRBY_PINK_DARK;
                             end else begin
                                 color = KIRBY_PINK;
@@ -102,10 +96,12 @@ module player_renderer (
                         end
                     end
 
-                    // Row 6-8: 몸체
-                    4'd6, 4'd7, 4'd8: begin
-                        if (sprite_x >= 0 && sprite_x <= 13) begin
-                            if (sprite_x == 0 || sprite_x == 13) begin
+                    // Row 5-6: 눈 (오른쪽 치우침)
+                    4'd5, 4'd6: begin
+                        if (sprite_x >= 1 && sprite_x <= 14) begin
+                            if (sprite_x >= 9 && sprite_x <= 10) begin
+                                color = BLACK;  // 눈 (오른쪽)
+                            end else if (sprite_x == 1 || sprite_x == 14) begin
                                 color = KIRBY_PINK_DARK;
                             end else begin
                                 color = KIRBY_PINK;
@@ -114,12 +110,24 @@ module player_renderer (
                         end
                     end
 
-                    // Row 9: 볼터치
+                    // Row 7-8: 몸체
+                    4'd7, 4'd8: begin
+                        if (sprite_x >= 0 && sprite_x <= 15) begin
+                            if (sprite_x == 0 || sprite_x == 15) begin
+                                color = KIRBY_PINK_DARK;
+                            end else begin
+                                color = KIRBY_PINK;
+                            end
+                            enable = 1'b1;
+                        end
+                    end
+
+                    // Row 9: 볼터치 (오른쪽)
                     4'd9: begin
-                        if (sprite_x >= 0 && sprite_x <= 13) begin
-                            if ((sprite_x >= 2 && sprite_x <= 3) || (sprite_x >= 10 && sprite_x <= 11)) begin
-                                color = ROSY_PINK;  // 볼터치
-                            end else if (sprite_x == 0 || sprite_x == 13) begin
+                        if (sprite_x >= 0 && sprite_x <= 15) begin
+                            if (sprite_x >= 11 && sprite_x <= 12) begin
+                                color = ROSY_PINK;  // 볼터치 (오른쪽)
+                            end else if (sprite_x == 0 || sprite_x == 15) begin
                                 color = KIRBY_PINK_DARK;
                             end else begin
                                 color = KIRBY_PINK;
@@ -130,8 +138,8 @@ module player_renderer (
 
                     // Row 10: 몸체
                     4'd10: begin
-                        if (sprite_x >= 0 && sprite_x <= 13) begin
-                            if (sprite_x == 0 || sprite_x == 13) begin
+                        if (sprite_x >= 0 && sprite_x <= 15) begin
+                            if (sprite_x == 0 || sprite_x == 15) begin
                                 color = KIRBY_PINK_DARK;
                             end else begin
                                 color = KIRBY_PINK;
@@ -142,8 +150,8 @@ module player_renderer (
 
                     // Row 11: 몸체 하단
                     4'd11: begin
-                        if (sprite_x >= 1 && sprite_x <= 12) begin
-                            if (sprite_x == 1 || sprite_x == 12) begin
+                        if (sprite_x >= 1 && sprite_x <= 14) begin
+                            if (sprite_x == 1 || sprite_x == 14) begin
                                 color = KIRBY_PINK_DARK;
                             end else begin
                                 color = KIRBY_PINK;
@@ -154,7 +162,7 @@ module player_renderer (
 
                     // Row 12: 몸체 하단
                     4'd12: begin
-                        if (sprite_x >= 2 && sprite_x <= 11) begin
+                        if (sprite_x >= 2 && sprite_x <= 13) begin
                             color = KIRBY_PINK;
                             enable = 1'b1;
                         end
@@ -162,15 +170,15 @@ module player_renderer (
 
                     // Row 13: 몸체 하단
                     4'd13: begin
-                        if (sprite_x >= 3 && sprite_x <= 10) begin
+                        if (sprite_x >= 3 && sprite_x <= 12) begin
                             color = KIRBY_PINK;
                             enable = 1'b1;
                         end
                     end
 
-                    // Row 14-15: 발
+                    // Row 14-15: 발 (약간 오른쪽으로)
                     4'd14, 4'd15: begin
-                        if ((sprite_x >= 4 && sprite_x <= 5) || (sprite_x >= 8 && sprite_x <= 9)) begin
+                        if ((sprite_x >= 5 && sprite_x <= 6) || (sprite_x >= 9 && sprite_x <= 10)) begin
                             color = FEET_RED;
                             enable = 1'b1;
                         end
@@ -184,12 +192,12 @@ module player_renderer (
 
             end else begin
                 // ========================================
-                // Player 2: Christmas Kirby (Santa Hat)
+                // Player 2: Christmas Kirby (측면 뷰)
                 // ========================================
                 case (sprite_y)
                     // Row 0: 모자 꼭대기 (흰색 폼폼)
                     4'd0: begin
-                        if (sprite_x >= 5 && sprite_x <= 8) begin
+                        if (sprite_x >= 7 && sprite_x <= 9) begin
                             color = WHITE;
                             enable = 1'b1;
                         end
@@ -197,7 +205,7 @@ module player_renderer (
 
                     // Row 1: 모자 상단
                     4'd1: begin
-                        if (sprite_x >= 4 && sprite_x <= 9) begin
+                        if (sprite_x >= 6 && sprite_x <= 10) begin
                             color = RED_HAT;
                             enable = 1'b1;
                         end
@@ -205,15 +213,15 @@ module player_renderer (
 
                     // Row 2: 모자
                     4'd2: begin
-                        if (sprite_x >= 3 && sprite_x <= 10) begin
-                            color = (sprite_x == 3 || sprite_x == 10) ? RED_DARK : RED_HAT;
+                        if (sprite_x >= 5 && sprite_x <= 11) begin
+                            color = (sprite_x == 5 || sprite_x == 11) ? RED_DARK : RED_HAT;
                             enable = 1'b1;
                         end
                     end
 
                     // Row 3: 모자 테두리 (흰색)
                     4'd3: begin
-                        if (sprite_x >= 2 && sprite_x <= 11) begin
+                        if (sprite_x >= 4 && sprite_x <= 11) begin
                             color = WHITE;
                             enable = 1'b1;
                         end
@@ -221,8 +229,8 @@ module player_renderer (
 
                     // Row 4: 몸체 시작
                     4'd4: begin
-                        if (sprite_x >= 1 && sprite_x <= 12) begin
-                            if (sprite_x == 1 || sprite_x == 12) begin
+                        if (sprite_x >= 3 && sprite_x <= 12) begin
+                            if (sprite_x == 3 || sprite_x == 12) begin
                                 color = KIRBY_PINK_DARK;
                             end else begin
                                 color = KIRBY_PINK;
@@ -231,12 +239,26 @@ module player_renderer (
                         end
                     end
 
-                    // Row 5-6: 눈
-                    4'd5, 4'd6: begin
-                        if (sprite_x >= 0 && sprite_x <= 13) begin
-                            if ((sprite_x >= 3 && sprite_x <= 4) || (sprite_x >= 9 && sprite_x <= 10)) begin
-                                color = BLACK;  // 눈
-                            end else if (sprite_x == 0 || sprite_x == 13) begin
+                    // Row 5: 눈 (오른쪽 치우침)
+                    4'd5: begin
+                        if (sprite_x >= 2 && sprite_x <= 13) begin
+                            if (sprite_x >= 9 && sprite_x <= 10) begin
+                                color = BLACK;  // 눈 (오른쪽)
+                            end else if (sprite_x == 2 || sprite_x == 13) begin
+                                color = KIRBY_PINK_DARK;
+                            end else begin
+                                color = KIRBY_PINK;
+                            end
+                            enable = 1'b1;
+                        end
+                    end
+
+                    // Row 6: 눈
+                    4'd6: begin
+                        if (sprite_x >= 1 && sprite_x <= 14) begin
+                            if (sprite_x >= 9 && sprite_x <= 10) begin
+                                color = BLACK;  // 눈 (오른쪽)
+                            end else if (sprite_x == 1 || sprite_x == 14) begin
                                 color = KIRBY_PINK_DARK;
                             end else begin
                                 color = KIRBY_PINK;
@@ -247,8 +269,8 @@ module player_renderer (
 
                     // Row 7-8: 몸체
                     4'd7, 4'd8: begin
-                        if (sprite_x >= 0 && sprite_x <= 13) begin
-                            if (sprite_x == 0 || sprite_x == 13) begin
+                        if (sprite_x >= 0 && sprite_x <= 15) begin
+                            if (sprite_x == 0 || sprite_x == 15) begin
                                 color = KIRBY_PINK_DARK;
                             end else begin
                                 color = KIRBY_PINK;
@@ -257,12 +279,12 @@ module player_renderer (
                         end
                     end
 
-                    // Row 9: 볼터치
+                    // Row 9: 볼터치 (오른쪽)
                     4'd9: begin
-                        if (sprite_x >= 0 && sprite_x <= 13) begin
-                            if ((sprite_x >= 2 && sprite_x <= 3) || (sprite_x >= 10 && sprite_x <= 11)) begin
-                                color = ROSY_PINK;  // 볼터치
-                            end else if (sprite_x == 0 || sprite_x == 13) begin
+                        if (sprite_x >= 0 && sprite_x <= 15) begin
+                            if (sprite_x >= 11 && sprite_x <= 12) begin
+                                color = ROSY_PINK;  // 볼터치 (오른쪽)
+                            end else if (sprite_x == 0 || sprite_x == 15) begin
                                 color = KIRBY_PINK_DARK;
                             end else begin
                                 color = KIRBY_PINK;
@@ -273,8 +295,8 @@ module player_renderer (
 
                     // Row 10: 몸체
                     4'd10: begin
-                        if (sprite_x >= 0 && sprite_x <= 13) begin
-                            if (sprite_x == 0 || sprite_x == 13) begin
+                        if (sprite_x >= 0 && sprite_x <= 15) begin
+                            if (sprite_x == 0 || sprite_x == 15) begin
                                 color = KIRBY_PINK_DARK;
                             end else begin
                                 color = KIRBY_PINK;
@@ -285,8 +307,8 @@ module player_renderer (
 
                     // Row 11: 몸체 하단
                     4'd11: begin
-                        if (sprite_x >= 1 && sprite_x <= 12) begin
-                            if (sprite_x == 1 || sprite_x == 12) begin
+                        if (sprite_x >= 1 && sprite_x <= 14) begin
+                            if (sprite_x == 1 || sprite_x == 14) begin
                                 color = KIRBY_PINK_DARK;
                             end else begin
                                 color = KIRBY_PINK;
@@ -297,7 +319,7 @@ module player_renderer (
 
                     // Row 12: 몸체 하단
                     4'd12: begin
-                        if (sprite_x >= 2 && sprite_x <= 11) begin
+                        if (sprite_x >= 2 && sprite_x <= 13) begin
                             color = KIRBY_PINK;
                             enable = 1'b1;
                         end
@@ -305,15 +327,15 @@ module player_renderer (
 
                     // Row 13: 몸체 하단
                     4'd13: begin
-                        if (sprite_x >= 3 && sprite_x <= 10) begin
+                        if (sprite_x >= 3 && sprite_x <= 12) begin
                             color = KIRBY_PINK;
                             enable = 1'b1;
                         end
                     end
 
-                    // Row 14-15: 발
+                    // Row 14-15: 발 (약간 오른쪽으로)
                     4'd14, 4'd15: begin
-                        if ((sprite_x >= 4 && sprite_x <= 5) || (sprite_x >= 8 && sprite_x <= 9)) begin
+                        if ((sprite_x >= 5 && sprite_x <= 6) || (sprite_x >= 9 && sprite_x <= 10)) begin
                             color = FEET_RED;
                             enable = 1'b1;
                         end
