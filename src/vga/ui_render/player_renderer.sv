@@ -1,7 +1,7 @@
 // player_renderer.sv
 // 16x16 픽셀 플레이어 (측면 뷰 - 오른쪽 보기)
-// Player 1: Christmas Kirby - 둥근 공 모양 (핑크 몸체 + 빨간 산타모자)
-// Player 2: Blue Bandana Dee - 배 모양 (살색 얼굴 + 주황 몸통 + 파란 두건)
+// Player 1: Christmas Kirby - 핑크 커비 + 산타모자
+// Player 2: Blue Bandana Dee - 살색/주황 + 파란 두건
 
 import color_pkg::*;
 
@@ -25,31 +25,39 @@ module player_renderer (
     assign sprite_x = x - player_x;
     assign sprite_y = y - player_y;
 
-    // 색상 정의
-    // Kirby 색상 (둥근 공 스타일)
-    localparam rgb_t KIRBY_PINK       = '{r: 8'd255, g: 8'd182, b: 8'd193};  // 밝은 핑크
-    localparam rgb_t KIRBY_PINK_DARK  = '{r: 8'd255, g: 8'd130, b: 8'd150};  // 어두운 핑크
-    localparam rgb_t KIRBY_ROSY       = '{r: 8'd255, g: 8'd120, b: 8'd140};  // 볼터치
-    localparam rgb_t KIRBY_FEET_RED   = '{r: 8'd220, g: 8'd60,  b: 8'd80};   // 빨간 발
+    // ============================================
+    // 색상 정의 (제공된 이미지 기반)
+    // ============================================
 
-    // Waddle Dee 색상 (배 모양 스타일)
-    localparam rgb_t BODY_PEACH       = '{r: 8'd255, g: 8'd220, b: 8'd180};  // 살색 얼굴
-    localparam rgb_t BODY_PEACH_DARK  = '{r: 8'd230, g: 8'd180, b: 8'd140};  // 어두운 살색
-    localparam rgb_t BODY_ORANGE      = '{r: 8'd255, g: 8'd150, b: 8'd100};  // 주황 몸통
-    localparam rgb_t BODY_ORANGE_DARK = '{r: 8'd220, g: 8'd100, b: 8'd60};   // 어두운 주황
-    localparam rgb_t BLUSH_ORANGE     = '{r: 8'd255, g: 8'd140, b: 8'd100};  // 주황 볼터치
-    localparam rgb_t FEET_YELLOW      = '{r: 8'd255, g: 8'd200, b: 8'd50};   // 노란 발
-    localparam rgb_t FEET_YELLOW_DARK = '{r: 8'd220, g: 8'd160, b: 8'd30};   // 어두운 노랑
+    // Christmas Kirby 색상 (이미지 참고)
+    localparam rgb_t KIRBY_PINK        = '{r: 8'd255, g: 8'd182, b: 8'd193};  // 핑크 몸체
+    localparam rgb_t KIRBY_PINK_DARK   = '{r: 8'd230, g: 8'd140, b: 8'd160};  // 어두운 핑크
+    localparam rgb_t KIRBY_BLUSH       = '{r: 8'd255, g: 8'd150, b: 8'd180};  // 볼터치
+    localparam rgb_t KIRBY_EYE_BLACK   = '{r: 8'd0,   g: 8'd0,   b: 8'd0};    // 눈 테두리
+    localparam rgb_t KIRBY_EYE_WHITE   = '{r: 8'd255, g: 8'd255, b: 8'd255};  // 눈 흰자
+    localparam rgb_t KIRBY_EYE_BLUE    = '{r: 8'd100, g: 8'd180, b: 8'd255};  // 눈 하이라이트
+    localparam rgb_t KIRBY_MOUTH_RED   = '{r: 8'd200, g: 8'd50,  b: 8'd80};   // 입
+    localparam rgb_t KIRBY_MOUTH_DARK  = '{r: 8'd150, g: 8'd30,  b: 8'd50};   // 입 안쪽
+    localparam rgb_t KIRBY_FEET_RED    = '{r: 8'd220, g: 8'd60,  b: 8'd80};   // 발
 
-    // 공통 색상
-    localparam rgb_t BLUE_BANDANA     = '{r: 8'd50,  g: 8'd100, b: 8'd200};  // 파란 두건
-    localparam rgb_t BLUE_DARK        = '{r: 8'd30,  g: 8'd70,  b: 8'd150};  // 어두운 파랑
-    localparam rgb_t RED_HAT          = '{r: 8'd220, g: 8'd20,  b: 8'd60};   // 빨간 모자
-    localparam rgb_t RED_DARK         = '{r: 8'd150, g: 8'd10,  b: 8'd40};   // 어두운 빨강
-    localparam rgb_t WHITE            = '{r: 8'd255, g: 8'd255, b: 8'd255};  // 흰색
-    localparam rgb_t BLACK            = '{r: 8'd0,   g: 8'd0,   b: 8'd0};    // 검정
+    // Santa Hat 색상
+    localparam rgb_t HAT_RED           = '{r: 8'd220, g: 8'd20,  b: 8'd60};   // 빨간 모자
+    localparam rgb_t HAT_RED_DARK      = '{r: 8'd150, g: 8'd10,  b: 8'd40};   // 어두운 빨강
+    localparam rgb_t HAT_WHITE         = '{r: 8'd255, g: 8'd255, b: 8'd255};  // 흰색 테두리
 
-    // 스프라이트 (16x16, 측면 뷰 - 오른쪽 보기)
+    // Bandana Dee 색상
+    localparam rgb_t DEE_PEACH         = '{r: 8'd255, g: 8'd220, b: 8'd180};  // 살색
+    localparam rgb_t DEE_PEACH_DARK    = '{r: 8'd230, g: 8'd180, b: 8'd140};  // 어두운 살색
+    localparam rgb_t DEE_ORANGE        = '{r: 8'd255, g: 8'd150, b: 8'd100};  // 주황
+    localparam rgb_t DEE_ORANGE_DARK   = '{r: 8'd220, g: 8'd100, b: 8'd60};   // 어두운 주황
+    localparam rgb_t DEE_BLUSH         = '{r: 8'd255, g: 8'd140, b: 8'd100};  // 볼터치
+    localparam rgb_t DEE_FEET_YELLOW   = '{r: 8'd255, g: 8'd200, b: 8'd50};   // 노란 발
+    localparam rgb_t BANDANA_BLUE      = '{r: 8'd50,  g: 8'd100, b: 8'd200};  // 파란 두건
+    localparam rgb_t BANDANA_BLUE_DARK = '{r: 8'd30,  g: 8'd70,  b: 8'd150};  // 어두운 파랑
+
+    localparam rgb_t BLACK = '{r: 8'd0, g: 8'd0, b: 8'd0};
+
+    // 스프라이트 렌더링
     always_comb begin
         if (in_player_area) begin
             enable = 1'b0;
@@ -57,143 +65,136 @@ module player_renderer (
 
             if (player_id == 1'b0) begin
                 // ========================================
-                // Player 1: Christmas Kirby - 둥근 공 모양
+                // Player 1: Christmas Kirby (이미지 기반 픽셀 아트)
                 // ========================================
                 case (sprite_y)
-                    // Row 0: 산타모자 꼭대기 (폼폼)
+                    // Row 0: 산타모자 폼폼
                     4'd0: begin
-                        if (sprite_x >= 8 && sprite_x <= 9) begin
-                            color = WHITE;
-                            enable = 1'b1;
-                        end
+                        case (sprite_x)
+                            4'd7, 4'd8, 4'd9: begin color = HAT_WHITE; enable = 1'b1; end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 1: 산타모자 상단
-                    4'd1: begin
-                        if (sprite_x >= 7 && sprite_x <= 10) begin
-                            color = (sprite_x == 7 || sprite_x == 10) ? RED_DARK : RED_HAT;
-                            enable = 1'b1;
-                        end
+                    // Row 1-2: 산타모자 상단
+                    4'd1, 4'd2: begin
+                        case (sprite_x)
+                            4'd6, 4'd10: begin color = HAT_RED_DARK; enable = 1'b1; end
+                            4'd7, 4'd8, 4'd9: begin color = HAT_RED; enable = 1'b1; end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 2: 산타모자
-                    4'd2: begin
-                        if (sprite_x >= 6 && sprite_x <= 11) begin
-                            color = (sprite_x == 6 || sprite_x == 11) ? RED_DARK : RED_HAT;
-                            enable = 1'b1;
-                        end
-                    end
-
-                    // Row 3: 산타모자 테두리 (흰색) + 몸체 시작
+                    // Row 3: 산타모자 흰 테두리
                     4'd3: begin
-                        if (sprite_x >= 5 && sprite_x <= 11) begin
-                            if (sprite_x >= 6 && sprite_x <= 11) begin
-                                color = WHITE;
-                            end else begin
-                                color = KIRBY_PINK_DARK;
+                        case (sprite_x)
+                            4'd5, 4'd6, 4'd7, 4'd8, 4'd9, 4'd10, 4'd11: begin
+                                color = HAT_WHITE; enable = 1'b1;
                             end
-                            enable = 1'b1;
-                        end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 4: 둥근 몸체 상단 (넓어지기 시작)
-                    4'd4: begin
-                        if (sprite_x >= 4 && sprite_x <= 12) begin
-                            if (sprite_x == 4 || sprite_x == 12) begin
-                                color = KIRBY_PINK_DARK;
-                            end else begin
-                                color = KIRBY_PINK;
+                    // Row 4-5: 핑크 머리 상단
+                    4'd4, 4'd5: begin
+                        case (sprite_x)
+                            4'd4, 4'd11: begin color = KIRBY_PINK_DARK; enable = 1'b1; end
+                            4'd5, 4'd6, 4'd7, 4'd8, 4'd9, 4'd10: begin
+                                color = KIRBY_PINK; enable = 1'b1;
                             end
-                            enable = 1'b1;
-                        end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 5: 둥근 몸체 (더 넓게)
-                    4'd5: begin
-                        if (sprite_x >= 3 && sprite_x <= 13) begin
-                            if (sprite_x == 3 || sprite_x == 13) begin
-                                color = KIRBY_PINK_DARK;
-                            end else begin
-                                color = KIRBY_PINK;
-                            end
-                            enable = 1'b1;
-                        end
+                    // Row 6: 눈 시작 (큰 타원형 눈)
+                    4'd6: begin
+                        case (sprite_x)
+                            4'd3, 4'd12: begin color = KIRBY_PINK_DARK; enable = 1'b1; end
+                            4'd4, 4'd5, 4'd10, 4'd11: begin color = KIRBY_PINK; enable = 1'b1; end
+                            4'd6, 4'd7: begin color = KIRBY_EYE_BLACK; enable = 1'b1; end  // 왼쪽 눈 테두리
+                            4'd8, 4'd9: begin color = KIRBY_PINK; enable = 1'b1; end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 6-7: 눈 (오른쪽에 위치, 최대 폭)
-                    4'd6, 4'd7: begin
-                        if (sprite_x >= 2 && sprite_x <= 14) begin
-                            if (sprite_x >= 10 && sprite_x <= 12) begin
-                                color = BLACK;  // 눈
-                            end else if (sprite_x == 2 || sprite_x == 14) begin
-                                color = KIRBY_PINK_DARK;
-                            end else begin
-                                color = KIRBY_PINK;
-                            end
-                            enable = 1'b1;
-                        end
+                    // Row 7: 눈 (흰자 + 파란 하이라이트)
+                    4'd7: begin
+                        case (sprite_x)
+                            4'd3, 4'd12: begin color = KIRBY_PINK_DARK; enable = 1'b1; end
+                            4'd4, 4'd5: begin color = KIRBY_PINK; enable = 1'b1; end
+                            4'd6: begin color = KIRBY_EYE_BLACK; enable = 1'b1; end
+                            4'd7: begin color = KIRBY_EYE_WHITE; enable = 1'b1; end  // 눈 흰자
+                            4'd8: begin color = KIRBY_EYE_BLUE; enable = 1'b1; end   // 파란 하이라이트
+                            4'd9: begin color = KIRBY_EYE_BLACK; enable = 1'b1; end
+                            4'd10, 4'd11: begin color = KIRBY_PINK; enable = 1'b1; end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 8-9: 중앙 몸체 (최대 폭 유지)
-                    4'd8, 4'd9: begin
-                        if (sprite_x >= 2 && sprite_x <= 14) begin
-                            if (sprite_x >= 11 && sprite_x <= 12) begin
-                                color = KIRBY_ROSY;  // 볼터치
-                            end else if (sprite_x == 2 || sprite_x == 14) begin
-                                color = KIRBY_PINK_DARK;
-                            end else begin
-                                color = KIRBY_PINK;
-                            end
-                            enable = 1'b1;
-                        end
+                    // Row 8: 눈 아래 + 볼터치 시작
+                    4'd8: begin
+                        case (sprite_x)
+                            4'd2, 4'd13: begin color = KIRBY_PINK_DARK; enable = 1'b1; end
+                            4'd3, 4'd4, 4'd5: begin color = KIRBY_PINK; enable = 1'b1; end
+                            4'd6, 4'd7: begin color = KIRBY_EYE_BLACK; enable = 1'b1; end
+                            4'd8, 4'd9: begin color = KIRBY_PINK; enable = 1'b1; end
+                            4'd10, 4'd11: begin color = KIRBY_BLUSH; enable = 1'b1; end  // 볼터치
+                            4'd12: begin color = KIRBY_PINK; enable = 1'b1; end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 10: 하단 몸체 (최대 폭 유지)
-                    4'd10: begin
-                        if (sprite_x >= 2 && sprite_x <= 14) begin
-                            if (sprite_x == 2 || sprite_x == 14) begin
-                                color = KIRBY_PINK_DARK;
-                            end else begin
-                                color = KIRBY_PINK;
-                            end
-                            enable = 1'b1;
-                        end
+                    // Row 9: 입 (빨간 미소)
+                    4'd9: begin
+                        case (sprite_x)
+                            4'd2, 4'd13: begin color = KIRBY_PINK_DARK; enable = 1'b1; end
+                            4'd3, 4'd4, 4'd5: begin color = KIRBY_PINK; enable = 1'b1; end
+                            4'd6, 4'd9: begin color = KIRBY_MOUTH_RED; enable = 1'b1; end  // 입 가장자리
+                            4'd7, 4'd8: begin color = KIRBY_MOUTH_DARK; enable = 1'b1; end // 입 안
+                            4'd10, 4'd11, 4'd12: begin color = KIRBY_PINK; enable = 1'b1; end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 11: 하단 (좁아지기 시작)
-                    4'd11: begin
-                        if (sprite_x >= 3 && sprite_x <= 13) begin
-                            if (sprite_x == 3 || sprite_x == 13) begin
-                                color = KIRBY_PINK_DARK;
-                            end else begin
-                                color = KIRBY_PINK;
+                    // Row 10-11: 하단 몸체
+                    4'd10, 4'd11: begin
+                        case (sprite_x)
+                            4'd3, 4'd12: begin color = KIRBY_PINK_DARK; enable = 1'b1; end
+                            4'd4, 4'd5, 4'd6, 4'd7, 4'd8, 4'd9, 4'd10, 4'd11: begin
+                                color = KIRBY_PINK; enable = 1'b1;
                             end
-                            enable = 1'b1;
-                        end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 12: 하단 (더 좁게)
+                    // Row 12: 하단 (좁아짐)
                     4'd12: begin
-                        if (sprite_x >= 4 && sprite_x <= 12) begin
-                            color = KIRBY_PINK;
-                            enable = 1'b1;
-                        end
+                        case (sprite_x)
+                            4'd4, 4'd5, 4'd6, 4'd7, 4'd8, 4'd9, 4'd10, 4'd11: begin
+                                color = KIRBY_PINK; enable = 1'b1;
+                            end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 13: 하단 끝 (좁게)
+                    // Row 13: 몸체 끝
                     4'd13: begin
-                        if (sprite_x >= 5 && sprite_x <= 11) begin
-                            color = KIRBY_PINK;
-                            enable = 1'b1;
-                        end
+                        case (sprite_x)
+                            4'd5, 4'd6, 4'd7, 4'd8, 4'd9, 4'd10: begin
+                                color = KIRBY_PINK; enable = 1'b1;
+                            end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 14-15: 작은 발 (둥근 몸체 아래 작게)
+                    // Row 14-15: 빨간 발
                     4'd14, 4'd15: begin
-                        if ((sprite_x >= 5 && sprite_x <= 6) || (sprite_x >= 10 && sprite_x <= 11)) begin
-                            color = KIRBY_FEET_RED;
-                            enable = 1'b1;
-                        end
+                        case (sprite_x)
+                            4'd5, 4'd6, 4'd9, 4'd10: begin
+                                color = KIRBY_FEET_RED; enable = 1'b1;
+                            end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
                     default: begin
@@ -204,163 +205,135 @@ module player_renderer (
 
             end else begin
                 // ========================================
-                // Player 2: Blue Bandana Dee - 배 모양 (위 좁고 아래 넓음)
+                // Player 2: Blue Bandana Dee
                 // ========================================
                 case (sprite_y)
-                    // Row 0: 두건 상단 (좁게)
+                    // Row 0-1: 파란 두건 상단
                     4'd0: begin
-                        if (sprite_x >= 7 && sprite_x <= 10) begin
-                            color = (sprite_x == 7 || sprite_x == 10) ? BLUE_DARK : BLUE_BANDANA;
-                            enable = 1'b1;
-                        end
+                        case (sprite_x)
+                            4'd7, 4'd8, 4'd9: begin color = BANDANA_BLUE; enable = 1'b1; end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 1: 두건 (약간 넓게)
                     4'd1: begin
-                        if (sprite_x >= 6 && sprite_x <= 11) begin
-                            color = (sprite_x == 6 || sprite_x == 11) ? BLUE_DARK : BLUE_BANDANA;
-                            enable = 1'b1;
-                        end
+                        case (sprite_x)
+                            4'd6, 4'd10: begin color = BANDANA_BLUE_DARK; enable = 1'b1; end
+                            4'd7, 4'd8, 4'd9: begin color = BANDANA_BLUE; enable = 1'b1; end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 2: 두건 + 얼굴 시작 (위가 좁음)
+                    // Row 2: 두건 + 얼굴 시작
                     4'd2: begin
-                        if (sprite_x >= 5 && sprite_x <= 12) begin
-                            if (sprite_x >= 9 && sprite_x <= 12) begin
-                                color = (sprite_x == 12) ? BLUE_DARK : BLUE_BANDANA;
-                            end else if (sprite_x == 5) begin
-                                color = BODY_PEACH_DARK;
-                            end else begin
-                                color = BODY_PEACH;
-                            end
-                            enable = 1'b1;
-                        end
+                        case (sprite_x)
+                            4'd5: begin color = DEE_PEACH_DARK; enable = 1'b1; end
+                            4'd6, 4'd7, 4'd8: begin color = DEE_PEACH; enable = 1'b1; end
+                            4'd9, 4'd10, 4'd11: begin color = BANDANA_BLUE; enable = 1'b1; end
+                            4'd12: begin color = BANDANA_BLUE_DARK; enable = 1'b1; end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 3: 두건 끝 + 얼굴 (약간 넓어짐)
+                    // Row 3: 두건 끝 + 얼굴
                     4'd3: begin
-                        if (sprite_x >= 4 && sprite_x <= 12) begin
-                            if (sprite_x >= 10 && sprite_x <= 12) begin
-                                color = BLUE_BANDANA;
-                            end else if (sprite_x == 4) begin
-                                color = BODY_PEACH_DARK;
-                            end else begin
-                                color = BODY_PEACH;
-                            end
-                            enable = 1'b1;
-                        end
+                        case (sprite_x)
+                            4'd4: begin color = DEE_PEACH_DARK; enable = 1'b1; end
+                            4'd5, 4'd6, 4'd7, 4'd8, 4'd9: begin color = DEE_PEACH; enable = 1'b1; end
+                            4'd10, 4'd11: begin color = BANDANA_BLUE; enable = 1'b1; end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 4: 얼굴 (더 넓어짐)
-                    4'd4: begin
-                        if (sprite_x >= 3 && sprite_x <= 13) begin
-                            if (sprite_x == 3 || sprite_x == 13) begin
-                                color = BODY_PEACH_DARK;
-                            end else begin
-                                color = BODY_PEACH;
+                    // Row 4-5: 살색 얼굴
+                    4'd4, 4'd5: begin
+                        case (sprite_x)
+                            4'd3, 4'd11: begin color = DEE_PEACH_DARK; enable = 1'b1; end
+                            4'd4, 4'd5, 4'd6, 4'd7, 4'd8, 4'd9, 4'd10: begin
+                                color = DEE_PEACH; enable = 1'b1;
                             end
-                            enable = 1'b1;
-                        end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 5-6: 눈 (얼굴 부분, 오른쪽 위치)
-                    4'd5, 4'd6: begin
-                        if (sprite_x >= 3 && sprite_x <= 14) begin
-                            if (sprite_x >= 9 && sprite_x <= 11) begin
-                                color = BLACK;  // 눈
-                            end else if (sprite_x == 3 || sprite_x == 14) begin
-                                color = BODY_PEACH_DARK;
-                            end else begin
-                                color = BODY_PEACH;
-                            end
-                            enable = 1'b1;
-                        end
+                    // Row 6: 눈 시작
+                    4'd6: begin
+                        case (sprite_x)
+                            4'd3, 4'd12: begin color = DEE_PEACH_DARK; enable = 1'b1; end
+                            4'd4, 4'd5: begin color = DEE_PEACH; enable = 1'b1; end
+                            4'd6, 4'd7: begin color = BLACK; enable = 1'b1; end  // 왼쪽 눈
+                            4'd8, 4'd9, 4'd10, 4'd11: begin color = DEE_PEACH; enable = 1'b1; end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 7: 얼굴에서 몸통으로 전환 (더 넓게)
+                    // Row 7: 눈 (흰자)
                     4'd7: begin
-                        if (sprite_x >= 2 && sprite_x <= 14) begin
-                            if (sprite_x == 2 || sprite_x == 14) begin
-                                color = BODY_PEACH_DARK;
-                            end else begin
-                                color = BODY_PEACH;
-                            end
-                            enable = 1'b1;
-                        end
+                        case (sprite_x)
+                            4'd2, 4'd13: begin color = DEE_PEACH_DARK; enable = 1'b1; end
+                            4'd3, 4'd4, 4'd5: begin color = DEE_PEACH; enable = 1'b1; end
+                            4'd6: begin color = BLACK; enable = 1'b1; end
+                            4'd7: begin color = KIRBY_EYE_WHITE; enable = 1'b1; end
+                            4'd8: begin color = KIRBY_EYE_BLUE; enable = 1'b1; end
+                            4'd9: begin color = BLACK; enable = 1'b1; end
+                            4'd10, 4'd11, 4'd12: begin color = DEE_PEACH; enable = 1'b1; end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 8: 주황색 몸통 시작 (최대 폭에 가까워짐)
+                    // Row 8: 주황색 몸통 시작 + 볼터치
                     4'd8: begin
-                        if (sprite_x >= 1 && sprite_x <= 14) begin
-                            if (sprite_x == 1 || sprite_x == 14) begin
-                                color = BODY_ORANGE_DARK;
-                            end else if (sprite_x >= 11 && sprite_x <= 12) begin
-                                color = BLUSH_ORANGE;  // 볼터치
-                            end else begin
-                                color = BODY_ORANGE;
-                            end
-                            enable = 1'b1;
-                        end
+                        case (sprite_x)
+                            4'd2, 4'd13: begin color = DEE_ORANGE_DARK; enable = 1'b1; end
+                            4'd3, 4'd4, 4'd5: begin color = DEE_ORANGE; enable = 1'b1; end
+                            4'd6, 4'd7: begin color = BLACK; enable = 1'b1; end
+                            4'd8, 4'd9: begin color = DEE_ORANGE; enable = 1'b1; end
+                            4'd10, 4'd11: begin color = DEE_BLUSH; enable = 1'b1; end
+                            4'd12: begin color = DEE_ORANGE; enable = 1'b1; end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 9-10: 주황 몸통 중앙 (최대 폭)
-                    4'd9, 4'd10: begin
-                        if (sprite_x >= 1 && sprite_x <= 15) begin
-                            if (sprite_x == 1 || sprite_x == 15) begin
-                                color = BODY_ORANGE_DARK;
-                            end else begin
-                                color = BODY_ORANGE;
+                    // Row 9-11: 주황 몸통 (넓어짐)
+                    4'd9, 4'd10, 4'd11: begin
+                        case (sprite_x)
+                            4'd1, 4'd14: begin color = DEE_ORANGE_DARK; enable = 1'b1; end
+                            4'd2, 4'd3, 4'd4, 4'd5, 4'd6, 4'd7, 4'd8, 4'd9, 4'd10, 4'd11, 4'd12, 4'd13: begin
+                                color = DEE_ORANGE; enable = 1'b1;
                             end
-                            enable = 1'b1;
-                        end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 11: 몸통 하단 (최대 폭 유지)
-                    4'd11: begin
-                        if (sprite_x >= 1 && sprite_x <= 15) begin
-                            if (sprite_x == 1 || sprite_x == 15) begin
-                                color = BODY_ORANGE_DARK;
-                            end else begin
-                                color = BODY_ORANGE;
-                            end
-                            enable = 1'b1;
-                        end
-                    end
-
-                    // Row 12: 몸통 하단 (약간 좁아짐)
+                    // Row 12: 하단 (좁아짐)
                     4'd12: begin
-                        if (sprite_x >= 2 && sprite_x <= 14) begin
-                            if (sprite_x == 2 || sprite_x == 14) begin
-                                color = BODY_ORANGE_DARK;
-                            end else begin
-                                color = BODY_ORANGE;
+                        case (sprite_x)
+                            4'd2, 4'd13: begin color = DEE_ORANGE_DARK; enable = 1'b1; end
+                            4'd3, 4'd4, 4'd5, 4'd6, 4'd7, 4'd8, 4'd9, 4'd10, 4'd11, 4'd12: begin
+                                color = DEE_ORANGE; enable = 1'b1;
                             end
-                            enable = 1'b1;
-                        end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 13: 몸통 끝 (더 좁아짐)
+                    // Row 13: 몸체 끝
                     4'd13: begin
-                        if (sprite_x >= 3 && sprite_x <= 13) begin
-                            color = BODY_ORANGE;
-                            enable = 1'b1;
-                        end
+                        case (sprite_x)
+                            4'd3, 4'd4, 4'd5, 4'd6, 4'd7, 4'd8, 4'd9, 4'd10, 4'd11, 4'd12: begin
+                                color = DEE_ORANGE; enable = 1'b1;
+                            end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
-                    // Row 14: 발 (넓게)
-                    4'd14: begin
-                        if ((sprite_x >= 4 && sprite_x <= 6) || (sprite_x >= 10 && sprite_x <= 12)) begin
-                            color = FEET_YELLOW;
-                            enable = 1'b1;
-                        end
-                    end
-
-                    // Row 15: 발 하단
-                    4'd15: begin
-                        if ((sprite_x >= 4 && sprite_x <= 6) || (sprite_x >= 10 && sprite_x <= 12)) begin
-                            color = (sprite_x == 6 || sprite_x == 12) ? FEET_YELLOW_DARK : FEET_YELLOW;
-                            enable = 1'b1;
-                        end
+                    // Row 14-15: 노란 발
+                    4'd14, 4'd15: begin
+                        case (sprite_x)
+                            4'd4, 4'd5, 4'd6, 4'd10, 4'd11, 4'd12: begin
+                                color = DEE_FEET_YELLOW; enable = 1'b1;
+                            end
+                            default: begin enable = 1'b0; end
+                        endcase
                     end
 
                     default: begin
